@@ -46,7 +46,7 @@ public enum Markdown {
         if line.hasPrefix("## ") { return (.heading(level: 2), 3) }
         if line.hasPrefix("# ") { return (.heading(level: 1), 2) }
         if line.hasPrefix("- [ ] ") || line == "- [ ]" { return (.todo(done: false), min(6, ns.length)) }
-        if line.hasPrefix("- [x] ") || line.hasPrefix("- [X] ") || line == "- [x]" { return (.todo(done: true), min(6, ns.length)) }
+        if line.hasPrefix("- [x] ") || line.hasPrefix("- [X] ") || line == "- [x]" || line == "- [X]" { return (.todo(done: true), min(6, ns.length)) }
         if line.hasPrefix("- ") || line.hasPrefix("* ") { return (.bullet, 2) }
         if let m = numberedRE.firstMatch(in: line, range: full) { return (.numbered, m.range.length) }
         if line.hasPrefix("> ") { return (.quote, 2) }
@@ -140,7 +140,9 @@ public enum Markdown {
         }
         var meta: [String: String] = [:]
         for line in rest[rest.startIndex..<end.lowerBound].split(separator: "\n") {
-            guard let c = line.firstIndex(of: ":") else { continue }
+            // A block whose lines are not all `key: value` is not front-matter: it is a body
+            // that starts with a `---` divider, and must not be swallowed.
+            guard let c = line.firstIndex(of: ":") else { return ([:], text) }
             meta[line[..<c].trimmingCharacters(in: .whitespaces)] = line[line.index(after: c)...].trimmingCharacters(in: .whitespaces)
         }
         return (meta, String(rest[end.upperBound...]))
