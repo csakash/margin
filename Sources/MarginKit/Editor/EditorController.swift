@@ -198,6 +198,73 @@ extension EditorController: NSTextViewDelegate {
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         updateSlashMenu()
+        fixTypingAttributes()
+    }
+
+    /// Block markers whose syntax is hidden (#, -, - [ ], >). The caret never rests inside one,
+    /// so typing can't split the syntax. Returns (marker start, content start) for the caret's line.
+    private func hiddenMarker(at loc: Int) -> (start: Int, end: Int)? {
+        let ns = textView.string as NSString
+        let line = EditorLogic.contentRange(in: ns, at: loc)
+        let inf = EditorLogic.info(ns.substring(with: line))
+        switch inf.type {
+        case .heading, .bullet, .todo, .quote: break
+        default: return nil
+        }
+        guard inf.prefixLength > inf.indent else { return nil }
+        if let l = styler.lines.last(where: { $0.range.location <= line.location }), l.type == .code { return nil }
+        return (line.location + inf.indent, line.location + inf.prefixLength)
+    }
+
+    public func textView(_ textView: NSTextView, willChangeSelectionFromCharacterRanges old: [NSValue],
+                         toCharacterRanges new: [NSValue]) -> [NSValue] {
+        guard new.count == 1, let r = new.first?.rangeValue, r.length == 0,
+              let m = hiddenMarker(at: r.location), r.location >= m.start, r.location < m.end else { return new }
+        let from = old.first?.rangeValue.location ?? r.location
+        // Arrowing left off the start of the content goes to the end of the previous line;
+        // anything else (click, Home, arrowing in from the right/above) lands after the marker.
+        if from == m.end, r.location == m.end - 1 {
+            let lineStart = EditorLogic.contentRange(in: textView.string as NSString, at: r.location).location
+            if lineStart > 0 { return [NSValue(range: NSRange(location: lineStart - 1, length: 0))] }
+        }
+        return [NSValue(range: NSRange(location: m.end, length: 0))]
+    }
+
+    /// After hidden syntax the "previous character" is a 1 pt transparent glyph; type (and draw the
+    /// caret) in the line's real style instead.
+    private func fixTypingAttributes() {
+        let sel = textView.selectedRange()
+        guard sel.length == 0, sel.location > 0, let ts = textView.textStorage, sel.location <= ts.length else { return }
+        guard let f = ts.attribute(.font, at: sel.location - 1, effectiveRange: nil) as? NSFont,
+              f.pointSize <= MarkdownStyler.hiddenFont.pointSize else { return }
+        var attrs = ts.attributes(at: sel.location - 1, effectiveRange: nil)
+        let ns = ts.string as NSString
+        let line = EditorLogic.contentRange(in: ns, at: sel.location)
+        // Borrow the font/colour of real text on this line: the next visible char, or the line's newline.
+        var probe: Int? = nil
+        var i = sel.location
+        while i < NSMaxRange(line) {
+            if let pf = ts.attribute(.font, at: i, effectiveRange: nil) as? NSFont, pf.pointSize > MarkdownStyler.hiddenFont.pointSize { probe = i; break }
+            i += 1
+        }
+        if probe == nil, NSMaxRange(line) < ts.length { probe = NSMaxRange(line) }
+        if let p = probe {
+            let real = ts.attributes(at: p, effectiveRange: nil)
+            attrs[.font] = real[.font]; attrs[.foregroundColor] = real[.foregroundColor]
+        } else {
+            attrs[.font] = MarkdownStyler.bodyFont; attrs[.foregroundColor] = MarkdownStyler.bodyColor
+            if let raw = attrs[.marginBlock] as? String, let role = BlockRole(rawValue: raw) {
+                switch role {
+                case .h1: attrs[.font] = Theme.ui(MarkdownStyler.headingSizes[0], .semibold); attrs[.foregroundColor] = Theme.text
+                case .h2: attrs[.font] = Theme.ui(MarkdownStyler.headingSizes[1], .semibold); attrs[.foregroundColor] = Theme.text
+                case .h3: attrs[.font] = Theme.ui(MarkdownStyler.headingSizes[2], .semibold); attrs[.foregroundColor] = Theme.text
+                case .quote: attrs[.foregroundColor] = MarkdownStyler.quoteColor
+                default: break
+                }
+            }
+        }
+        attrs[.kern] = nil
+        textView.typingAttributes = attrs
     }
 
     public func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {

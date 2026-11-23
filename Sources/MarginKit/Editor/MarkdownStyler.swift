@@ -25,8 +25,12 @@ final class MarkdownStyler: NSObject, NSTextStorageDelegate {
     static let quoteColor = NSColor(srgbRed: 0xEC / 255, green: 0xEC / 255, blue: 0xEE / 255, alpha: 1)
     static let codeColor = NSColor(srgbRed: 0xCF / 255, green: 0xCF / 255, blue: 0xD3 / 255, alpha: 1)
     static let codeFont = Theme.mono(12.5)
-    static let hiddenFont = Theme.ui(1)
+    /// Hidden syntax is set in a near-zero font so it takes no visible width (a long URL included).
+    static let hiddenFont = Theme.ui(0.01)
     static let markerColor = Theme.textTertiary
+    /// Markdown syntax is never shown (Notion-style rendering): zero-ish width, transparent.
+    static let hidden: [NSAttributedString.Key: Any] = [.font: hiddenFont, .foregroundColor: NSColor.clear, .kern: 0]
+    static let bulletGutter: CGFloat = 20
     static let bodyLineSpacing: CGFloat = 5.5          // ≈ line-height 1.6 at 14.5 pt
     static let todoGutter: CGFloat = 26                // 16 pt box + 10 pt gap
     static let quoteGutter: CGFloat = 14
@@ -189,7 +193,8 @@ final class MarkdownStyler: NSObject, NSTextStorageDelegate {
             p.paragraphSpacing = (role == .codeBottom || role == .codeSingle) ? 12 : 0
             p.paragraphSpacingBefore = (role == .codeTop || role == .codeSingle) ? 12 : 0
             attrs[.font] = Self.codeFont
-            attrs[.foregroundColor] = line.type == .codeFence ? Theme.textTertiary : Self.codeColor
+            // Fence lines (```lang) are padding for the rendered block; their text is not shown.
+            attrs[.foregroundColor] = line.type == .codeFence ? NSColor.clear : Self.codeColor
             attrs[.paragraphStyle] = p
             ts.setAttributes(attrs, range: full)
             return
@@ -207,23 +212,40 @@ final class MarkdownStyler: NSObject, NSTextStorageDelegate {
             p.lineSpacing = size * 0.2
             p.paragraphSpacingBefore = Self.headingBefore[lvl]
             p.paragraphSpacing = Self.headingAfter[lvl]
-            attrs[.font] = Theme.ui(size, .semibold)
+            let font = Theme.ui(size, .semibold)
+            p.minimumLineHeight = ceil(font.ascender - font.descender)   // an empty heading keeps its height
+            attrs[.font] = font
             attrs[.foregroundColor] = Theme.text
             attrs[.paragraphStyle] = p
             if lvl == 0 { attrs[.kern] = -0.5 }
             ts.setAttributes(attrs, range: full)
-            ts.addAttributes([.font: Theme.ui(round(size * 0.6), .medium), .foregroundColor: Theme.textTertiary,
-                              .kern: 0], range: prefix)
+            ts.addAttributes(Self.hidden, range: prefix)
             styleInline(ts, text: text, range: content)
 
-        case .bullet, .numbered:
+        case .bullet:
+            // "- " is hidden; a • is drawn in the gutter (MarkdownTextView.drawBlock).
+            let marker = NSRange(location: L + inf.indent, length: prefix.length - inf.indent)
+            let indentW = Self.width(ns.substring(with: NSRange(location: L, length: inf.indent)))
+            let p = NSMutableParagraphStyle()
+            p.lineSpacing = Self.bodyLineSpacing
+            p.paragraphSpacing = 2
+            p.firstLineHeadIndent = Self.bulletGutter
+            p.headIndent = indentW + Self.bulletGutter
+            p.minimumLineHeight = ceil(Self.bodyFont.ascender - Self.bodyFont.descender)
+            attrs[.paragraphStyle] = p
+            ts.setAttributes(attrs, range: full)
+            ts.addAttributes(Self.hidden, range: marker)
+            styleInline(ts, text: text, range: content)
+
+        case .numbered:
+            // The number is the rendered output (as in Notion), shown in a softer tone.
             let p = NSMutableParagraphStyle()
             p.lineSpacing = Self.bodyLineSpacing
             p.paragraphSpacing = 2
             p.headIndent = Self.width(ns.substring(with: prefix))
             attrs[.paragraphStyle] = p
             ts.setAttributes(attrs, range: full)
-            ts.addAttribute(.foregroundColor, value: Self.markerColor,
+            ts.addAttribute(.foregroundColor, value: Theme.textSecondary,
                             range: NSRange(location: L + inf.indent, length: prefix.length - inf.indent))
             styleInline(ts, text: text, range: content)
 
@@ -361,7 +383,7 @@ final class MarkdownStyler: NSObject, NSTextStorageDelegate {
 
     private func styleInline(_ ts: NSTextStorage, text: String, range: NSRange) {
         guard range.length > 1 else { return }
-        let dim: [NSAttributedString.Key: Any] = [.foregroundColor: Self.markerColor]
+        let dim = Self.hidden   // inline syntax (** _ ` [ ](url)) is hidden, only the result shows
         var code: [NSRange] = []
         func free(_ r: NSRange) -> Bool { !code.contains { NSIntersectionRange($0, r).length > 0 } }
 

@@ -313,6 +313,25 @@ public final class MarkdownTextView: NSTextView {
         case .todo, .todoDone:
             guard let r = checkboxRect(for: frag, lineStart: lineStart) else { return }
             drawCheckbox(r, done: role == .todoDone)
+        case .bullet:
+            // Only the first fragment of the paragraph gets the dot.
+            let ns = string as NSString
+            let cr = EditorLogic.contentRange(in: ns, at: lineStart)
+            guard cr.location == lineStart else { return }
+            let inf = EditorLogic.info(ns.substring(with: cr))
+            let indentW = inf.indent > 0
+                ? MarkdownStyler.width(ns.substring(with: NSRange(location: cr.location, length: inf.indent))) : 0
+            let font = MarkdownStyler.bodyFont
+            let cy = g.textTop + font.ascender - font.xHeight / 2
+            let d: CGFloat = inf.indent >= 2 ? 4.5 : 5   // nested items get a slightly smaller dot
+            let dot = NSRect(x: g.x0 + indentW + 6, y: round(cy - d / 2), width: d, height: d)
+            (inf.indent >= 2 ? NSColor(white: 1, alpha: 0.45) : NSColor(white: 1, alpha: 0.7)).setFill()
+            if inf.indent >= 2 {
+                let ring = NSBezierPath(ovalIn: dot.insetBy(dx: 0.6, dy: 0.6)); ring.lineWidth = 1.2
+                NSColor(white: 1, alpha: 0.6).setStroke(); ring.stroke()
+            } else {
+                NSBezierPath(ovalIn: dot).fill()
+            }
         case .quote:
             let bar = NSRect(x: g.x0, y: g.textTop + 1, width: 2, height: max(4, g.textBottom - g.textTop - 2))
             NSGraphicsContext.saveGraphicsState()
