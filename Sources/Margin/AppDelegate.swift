@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var glass: GlassView!
     private var main: MainView!
     private var panel: PanelController!
+    private var dragPlacement: DragPlacement!
     private var statusItem: NSStatusItem?
     private var currentID: NoteID?
     private var refreshScheduled = false
@@ -34,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.autoresizingMask = [.width, .height]
         glass.contentView.addSubview(main)
         panel = PanelController(contentView: glass)
+        dragPlacement = DragPlacement(controller: panel)   // drag the header or the line: snap FX + 8 spots
+        dragPlacement.install()
 
         wireEditor()
         wireHeaderAndToolbar()
