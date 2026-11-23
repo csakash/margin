@@ -22,7 +22,7 @@ A floating, local-first notes panel for macOS. It sits above any app, including 
 
 ## Download
 
-Get the signed build from **[margin-notes-cuc.pages.dev](https://margin-notes-cuc.pages.dev)**: open the DMG and drag Margin to Applications. Requires macOS 14+ on Apple silicon.
+Get the signed build from **[margin.motiontic.com](https://margin.motiontic.com)**: open the DMG and drag Margin to Applications. Requires macOS 14+ on Apple silicon.
 
 ## Build
 
