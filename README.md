@@ -2,6 +2,11 @@
 
 A floating, local-first notes panel for macOS. It sits above any app, including full-screen Chrome, so you can write while you read. Notes are plain markdown files on your Mac.
 
+<p align="center">
+  <a href="https://margin.motiontic.com/#film"><img src="docs/media/margin-demo.gif" alt="Margin being dragged to a corner: the screen dims, eight spots light up and the panel snaps into place" width="720"></a>
+</p>
+<p align="center"><b><a href="https://margin.motiontic.com/#film">▶ Watch the 50-second launch film</a></b> · <a href="docs/media/margin-launch.mp4">download the MP4</a></p>
+
 - **Floats everywhere.** A floating panel that doesn't take focus and appears on every Space, including over full-screen apps.
 - **8 spots.** Snap it to any edge or corner. Drag it and the screen shows you where it can land.
 - **Minimises to a thin line.** A glowing glass line on its edge, with no text or logo. Click it to open; drag it to move it.
