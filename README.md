@@ -20,6 +20,10 @@ A floating, local-first notes panel for macOS. It sits above any app, including 
 | / | Block menu |
 | ⌘-click a link | Open it in the browser |
 
+## Download
+
+Get the signed build from **[margin-notes-cuc.pages.dev](https://margin-notes-cuc.pages.dev)**: open the DMG and drag Margin to Applications. Requires macOS 14+ on Apple silicon.
+
 ## Build
 
 Requires macOS 14+ and Xcode 16+ (Swift 6 toolchain).
@@ -28,7 +32,11 @@ Requires macOS 14+ and Xcode 16+ (Swift 6 toolchain).
 swift build && .build/debug/Margin     # run a debug build
 swift test                             # core tests
 scripts/bundle.sh --open               # build dist/Margin.app with its icon and open it
+scripts/release.sh                     # Developer ID sign, DMG, notarize + staple
 ```
+
+`release.sh` notarizes when a notarytool keychain profile named `margin-notary` exists. Create it once with
+`xcrun notarytool store-credentials margin-notary --apple-id <apple-id> --team-id <TEAMID>`.
 
 Notes live in `~/Documents/Margin`: one `.md` file per note, media in `assets/`, and a rebuildable search index in `.margin/`.
 
