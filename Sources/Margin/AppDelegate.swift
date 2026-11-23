@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var main: MainView!
     private var panel: PanelController!
     private var dragPlacement: DragPlacement!
+    private let media = MediaHandler()
     private var statusItem: NSStatusItem?
     private var currentID: NoteID?
     private var refreshScheduled = false
@@ -39,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dragPlacement.install()
 
         wireEditor()
+        editor.textView.mediaHandler = media   // drop / paste files, images, links, quotes
         wireHeaderAndToolbar()
         wireDrawer()
         wirePanel()
