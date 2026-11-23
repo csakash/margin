@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         wirePanel()
         registerHotkeys()
         buildStatusItem()
+        BrowserClip.startTracking()   // remember the last browser you were in, for "Clip tab"
 
         store.onChange = { [weak self] in self?.scheduleRefresh() }
         openInitialNote()
