@@ -87,7 +87,7 @@ That's **9 loops in 5 waves: 7 parallel and 2 sequential integration loops**, ru
 
 ## 6. Quality gates (run after each merge)
 
-1. `swift build -c debug` with zero errors. Swift 6 strict concurrency is on; UI types are `@MainActor`.
+1. `swift build -c debug` with zero errors. Swift 6 toolchain in Swift 5 language mode; UI types are `@MainActor`.
 2. `swift test`: Core tests pass.
 3. Launch smoke test: the app starts, the panel shows, ⌥Space minimises it, and the process stays under 60 MB RSS after 30 s idle.
 4. Wave 4 only: `scripts/bundle.sh` produces a `Margin.app` that runs from Finder and shows its icon in the Dock.
@@ -95,3 +95,20 @@ That's **9 loops in 5 waves: 7 parallel and 2 sequential integration loops**, ru
 ## 7. Out of scope for this build
 
 These ship after v1: Sparkle updates, notarisation, App Store packaging, PDF export, and per-display memory of the drawer height.
+
+## 8. Build log (24 Nov 2026)
+
+| Wave | Loop | Result |
+|---|---|---|
+| 0 | Foundation | Package, contracts, markdown classifier, floating panel |
+| 1 | A Core | File-backed store, FTS5 search, asset store; 38 tests |
+| 1 | B Editor | Live styling, block shortcuts, `/` menu, checkboxes, images, link cards |
+| 1 | C Window | Minimise morph, 8 anchors, nudge, resize persistence, Carbon hotkeys |
+| 1 | D Material | Glass, rim, hotspot, clearcoat, sheen, minimised line, orb, SnapOverlay |
+| 2 | Integration | Main view, push-up drawer, menus, status item, app wiring |
+| 3 | E Media | Drop and paste of files, images, video and URLs; link titles; quotes with sources |
+| 3 | F Capture | Region screenshot, front browser tab clip |
+| 3 | G Placement | Drag-to-place: overlay, orb stretch, magnetism, flick projection, Esc |
+| 4 | Ship | `dist/Margin.app` (2.2 MB, icon); idle footprint 28 MB; minimised idle CPU 0.0–0.1% |
+
+Checked in the running release app: launch, Dock icon, minimise and expand with ⌥Space, the drawer opening and pushing the note up, typing with live styling, and autosave to disk. Not yet checked with a real mouse and keyboard: checkbox clicks, drag and drop from other apps, the drag-to-place magnet near a slot, Reduce Motion, and multiple displays.

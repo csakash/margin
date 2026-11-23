@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.onChange = { [weak self] in self?.scheduleRefresh() }
         openInitialNote()
         refreshNow()
+        main.status.alphaValue = 0   // only shown while saving
         panel.show()
         editor.focus()
     }
@@ -138,11 +139,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editor.onAction = { [weak self] action in self?.perform(action) }
     }
 
+    /// "Saving…" appears while you type, turns into "Saved · local", then fades away
+    /// so it never sits on top of the text.
     private func showSaving() {
-        main.status.stringValue = "Saving…"
+        let s = main.status
+        s.stringValue = "Saving…"
+        s.alphaValue = 1
         savedTimer?.invalidate()
         savedTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.main.status.stringValue = "Saved · local" }
+            MainActor.assumeIsolated {
+                guard let s = self?.main.status else { return }
+                s.stringValue = "Saved · local"
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.6
+                    ctx.timingFunction = Theme.easeOut
+                    // start fading after a beat
+                    s.animator().alphaValue = 0.999
+                } completionHandler: {
+                    MainActor.assumeIsolated {
+                        NSAnimationContext.runAnimationGroup { c in c.duration = 0.5; s.animator().alphaValue = 0 }
+                    }
+                }
+            }
         }
     }
 
@@ -182,7 +200,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func wirePanel() {
         panel.onStateChange = { [weak self] in
             guard let self else { return }
-            if panel.isMinimised { drawer.setOpen(false, animated: false) } else { editor.focus() }
+            if panel.isMinimised {
+                drawer.setOpen(false, animated: false)
+                // No caret while minimised: its blink animation is the only thing that would wake us.
+                panel.panel.makeFirstResponder(nil)
+                editor.textView.isEditable = false
+            } else {
+                editor.textView.isEditable = true
+                editor.focus()
+            }
         }
     }
 
