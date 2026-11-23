@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         currentID = id
         UserDefaults.standard.set(id.raw, forKey: "margin.current")
         editor.text = store.load(id)
+        editor.textView.undoManager?.removeAllActions()   // undo must not cross into another note
         editor.textView.setSelectedRange(NSRange(location: (editor.text as NSString).length, length: 0))
         drawer.model.currentID = id
         updateTitle()
