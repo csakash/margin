@@ -67,5 +67,21 @@ extension EditorController: NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) { onChange?(textView.string) }
 }
 
+/// Media hook. Loop B's MarkdownTextView asks this first on drop and paste; Loop E implements it
+/// in its own file (Editor/MediaHandler.swift) so the two loops never edit the same file.
+@MainActor
+public protocol MediaHandling: AnyObject {
+    /// Return true if the drop was handled (files, images, URLs, dragged text → quote).
+    func handleDrop(_ info: NSDraggingInfo, in editor: EditorController) -> Bool
+    /// Return true if the paste was handled (image data, file URLs, a lone URL → link).
+    func handlePaste(_ pasteboard: NSPasteboard, in editor: EditorController) -> Bool
+    /// Pasteboard types the text view should accept for drag & drop.
+    var acceptedDragTypes: [NSPasteboard.PasteboardType] { get }
+}
+
 /// Subclass hook for key handling, drag & drop and click-on-attachment.
-public final class MarkdownTextView: NSTextView {}
+public final class MarkdownTextView: NSTextView {
+    /// Set by integration; consulted before the default drop/paste behaviour.
+    public weak var mediaHandler: MediaHandling?
+    public weak var editorController: EditorController?
+}
