@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Margin — Floating Notes</title>
+<link rel="icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050505; --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.13);
+  --tx:#f2f2f3; --tx2:#a1a1a6; --tx3:#636368;
+  --glow:0 0 8px rgba(255,255,255,.55);
+  --spring:cubic-bezier(.32,.72,0,1);           /* Vaul / iOS sheet curve */
+  --out:cubic-bezier(.23,1,.32,1);
+  --ui:'Geist',system-ui,-apple-system,sans-serif; --mono:'Geist Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 var(--ui);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+a{color:inherit}
+
+/* ---------- board nav ---------- */
+.nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;height:52px;padding:0 20px;border-bottom:1px solid var(--line);background:rgba(5,5,5,.82);backdrop-filter:blur(16px)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.01em}
+.brand .bdot{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.7)}
+.brand small{font:400 11px var(--mono);color:var(--tx3);letter-spacing:.04em}
+.tabs{display:flex;gap:2px;margin-left:auto;background:rgba(255,255,255,.03);border:1px solid var(--line);padding:3px;border-radius:10px}
+.tabs button{padding:5px 12px;border-radius:7px;color:var(--tx2);font-size:13px;transition:color .15s,background .15s}
+.tabs button[aria-selected=true]{background:rgba(255,255,255,.09);color:var(--tx);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+section.view{display:none}
+section.view.on{display:block}
+
+/* ---------- stage: dark full-screen Chrome sim ---------- */
+.stage{position:relative;height:calc(100vh - 52px);min-height:660px;overflow:hidden;background:#0a0a0a}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(50% 40% at 75% 0%,rgba(255,255,255,.05),transparent 70%)}
+.stage .flag{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:2;display:flex;gap:10px;align-items:center;font:500 11px var(--mono);color:#6a6a6e;background:rgba(255,255,255,.04);border:1px solid var(--line);padding:5px 10px;border-radius:99px;white-space:nowrap}
+.article{max-width:680px;margin:0 auto;padding:72px 28px 140px;color:#9d9da2;font:19px/1.72 'Newsreader',Georgia,serif;height:100%;overflow:auto}
+.article .kick{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#5f5f64}
+.article h1{font:500 44px/1.1 'Newsreader',serif;letter-spacing:-.02em;margin:12px 0 18px;color:#ececee}
+.article .by{font:13px var(--ui);color:#606065;margin-bottom:36px}
+.article h2{font:500 26px/1.25 'Newsreader',serif;margin:40px 0 8px;color:#e4e4e6}
+.article blockquote{border-left:2px solid #333;margin:24px 0;padding:2px 0 2px 20px;color:#c4c4c8;font-style:italic}
+.article ::selection{background:rgba(255,255,255,.85);color:#000}
+
+.flag button{font:inherit;color:#d0d0d4;padding:0 0 0 10px;border-left:1px solid var(--line)}
+.tips{position:absolute;left:50%;top:52px;z-index:12;width:300px;margin-left:-150px;opacity:0;transform:translateY(-4px) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s var(--out),transform .16s var(--out);background:rgba(14,14,15,.86);color:var(--tx2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:12px;backdrop-filter:blur(14px);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.tips b{color:var(--tx);font-weight:500;display:block;margin-bottom:6px}
+.tips ul{margin:0;padding-left:16px}
+.tips li{margin:3px 0}
+kbd,.kbd{font:500 10.5px var(--mono);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--tx)}
+.tips.on{opacity:1;transform:none;pointer-events:auto}
+
+/* ---------- the panel: black glass, like the icon ---------- */
+.panel{position:absolute;z-index:10;top:60px;right:44px;width:440px;height:600px;max-width:calc(100% - 32px);
+  display:flex;flex-direction:column;border-radius:26px;isolation:isolate;
+  background:linear-gradient(180deg,rgba(30,30,33,.80) 0%,rgba(12,12,13,.86) 45%,rgba(6,6,7,.90) 100%);
+  backdrop-filter:blur(40px) saturate(120%);-webkit-backdrop-filter:blur(40px) saturate(120%);
+  border:1px solid transparent;
+  box-shadow:0 0 0 1px rgba(0,0,0,.7),0 2px 4px rgba(0,0,0,.4),0 24px 48px -12px rgba(0,0,0,.8),0 60px 120px -20px rgba(0,0,0,.9),0 0 128px 32px rgba(255,255,255,.035);
+  transition:left .55s var(--spring),top .55s var(--spring),width .55s var(--spring),height .55s var(--spring),border-radius .55s var(--spring),box-shadow .4s,background .4s,opacity .3s,transform .6s var(--spring),filter .6s var(--spring);
+  overflow:hidden;opacity:var(--op,1);--mx:50%;--my:-30%}
+.panel.resizing{transition:none}
+.panel.moving{transition:width .25s var(--spring),height .25s var(--spring),border-radius .25s var(--spring),box-shadow .25s,background .25s}
+.panel.boot{opacity:0;transform:scale(.955) translateY(10px);filter:blur(12px)}
+/* rim light: thin gradient border + specular hotspot that follows the pointer */
+.rim{position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:4;
+  background:radial-gradient(180px circle at var(--mx) var(--my),rgba(255,255,255,.75),rgba(255,255,255,0) 70%),
+             linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,.07) 22%,rgba(255,255,255,.03) 75%,rgba(255,255,255,.14));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+/* light cone from the top, like a lamp over the page */
+.cone{position:absolute;left:0;right:0;top:0;height:70%;pointer-events:none;z-index:0;
+  background:radial-gradient(55% 45% at 50% -8%,rgba(255,255,255,.11),rgba(255,255,255,.025) 55%,transparent 75%)}
+/* clearcoat: soft curved reflection band across the top, like a polished tank */
+.coat{position:absolute;left:-10%;right:-10%;top:-38px;height:84px;border-radius:50%;pointer-events:none;z-index:1;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.10),transparent 70%);transform:translateX(calc((var(--sx,0) * 24px)))}
+/* moving specular sweep */
+.sheen{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;border-radius:inherit;mix-blend-mode:screen}
+.sheen::after{content:"";position:absolute;top:-30%;bottom:-30%;width:55%;left:0;transform:translateX(-140%) skewX(-18deg);opacity:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.05) 30%,rgba(255,255,255,.28) 48%,rgba(255,255,255,.55) 50%,rgba(255,255,255,.28) 52%,rgba(255,255,255,.05) 70%,transparent 100%);filter:blur(2px)}
+.panel.glint .sheen::after{animation:sweep 1.15s var(--out) forwards}
+@keyframes sweep{0%{transform:translateX(-140%) skewX(-18deg);opacity:1}100%{transform:translateX(260%) skewX(-18deg);opacity:1}}
+
+.head{position:relative;z-index:3;display:flex;align-items:center;gap:4px;height:48px;padding:0 10px 0 16px;cursor:grab;flex:none;user-select:none;touch-action:none}
+.head:active{cursor:grabbing}
+.head::after{content:"";position:absolute;left:16px;right:16px;bottom:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent)}
+.dots{display:flex;gap:7px;margin-right:8px}
+.dots span{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.15)}
+.htitle{flex:1;min-width:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx2);transition:opacity .2s}
+.ib{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;color:var(--tx3);position:relative;flex:none;transition:color .15s,background .15s,transform .12s var(--out)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:filter .25s,opacity .2s,transform .25s var(--out)}
+.ib.on{color:#fff}
+.ib.on svg{filter:drop-shadow(0 0 5px rgba(255,255,255,.8))}
+@media (hover:hover){
+  .ib:hover{background:rgba(255,255,255,.06);color:var(--tx)}
+  .ib[data-tip]:hover::after{content:attr(data-tip);position:absolute;top:36px;right:0;white-space:nowrap;font:500 10.5px var(--mono);background:#000;color:#ddd;padding:4px 7px;border-radius:6px;z-index:9;pointer-events:none;border:1px solid var(--line2)}
+  .foot .ib[data-tip]:hover::after{top:auto;bottom:36px;left:0;right:auto}
+}
+
+.main{position:relative;z-index:2;flex:1;min-height:0;display:flex;flex-direction:column}
+.ed{flex:1;overflow:auto;overscroll-behavior:contain;padding:18px 24px 56px;outline:none;font-size:14.5px;line-height:1.66;caret-color:#fff;color:#d9d9dc;transition:opacity .18s var(--out),transform .18s var(--out),filter .18s var(--out)}
+.ed.swap{opacity:0;transform:translateY(6px);filter:blur(4px);transition:none}
+.ed>*{margin:0 0 4px}
+.ed h1{font-size:25px;line-height:1.22;font-weight:600;letter-spacing:-.025em;margin:6px 0 10px;color:#fff;text-wrap:balance}
+.ed h2{font-size:18px;font-weight:600;margin:18px 0 6px;letter-spacing:-.01em;color:#fff}
+.ed h3{font-size:15px;font-weight:600;margin:12px 0 4px;color:#fff}
+.ed ul,.ed ol{padding-left:22px}
+.ed li::marker{color:var(--tx3)}
+.ed blockquote{position:relative;padding:2px 0 2px 14px;color:#ececee;margin:10px 0}
+.ed blockquote::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:2px;border-radius:2px;background:#fff;box-shadow:var(--glow)}
+.ed blockquote cite{display:block;font:normal 10.5px var(--mono);color:var(--tx3);margin-top:4px}
+.ed pre{font:12.5px/1.6 var(--mono);background:rgba(0,0,0,.45);border:1px solid var(--line);border-radius:12px;padding:10px 12px;white-space:pre-wrap;margin:8px 0;color:#cfcfd3}
+.ed code{font:12.5px var(--mono);background:rgba(255,255,255,.07);padding:1px 5px;border-radius:5px}
+.ed hr{border:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);margin:16px 0}
+.ed a{color:#fff}
+.ed .todo{display:flex;gap:10px;align-items:flex-start}
+.ed .cb{flex:none;width:16px;height:16px;margin-top:4px;border:1.5px solid #555;border-radius:5px;cursor:pointer;display:grid;place-items:center;transition:background .2s,border-color .2s,box-shadow .3s}
+.ed .todo.done .cb{background:#fff;border-color:#fff;box-shadow:var(--glow)}
+.ed .todo.done .cb::after{content:"";width:7px;height:4px;border:2px solid #000;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.ed .todo.done .tx{color:var(--tx3);text-decoration:line-through;text-decoration-color:#444}
+.ed .tx{flex:1;min-width:0;outline:none}
+.ed>div:only-child:empty::before,.ed:empty::before{content:"Start typing, or press / for blocks";color:var(--tx3)}
+.ed figure{position:relative;margin:10px 0;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 10px 24px -8px rgba(0,0,0,.8)}
+.ed figure img,.ed figure video{display:block;width:100%;max-height:300px;object-fit:cover;outline:1px solid rgba(255,255,255,.1);outline-offset:-1px}
+.ed figcaption{font:10.5px var(--mono);color:var(--tx3);padding:7px 10px}
+.ed figure .rm{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:8px;background:rgba(0,0,0,.65);color:#fff;font-size:13px;opacity:0;transition:.15s}
+@media (hover:hover){.ed figure:hover .rm{opacity:1}}
+.ed .link{display:flex;gap:10px;align-items:center;padding:10px 12px;margin:8px 0;border-radius:14px;background:rgba(255,255,255,.035);color:var(--tx);text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.06)}
+.ed .fav{width:28px;height:28px;border-radius:8px;background:linear-gradient(180deg,#fff,#bdbdc1);color:#000;display:grid;place-items:center;font-weight:600;font-size:12px;flex:none;box-shadow:0 0 12px rgba(255,255,255,.18)}
+.ed .link b{display:block;font-weight:500;font-size:13px;line-height:1.3}
+.ed .link small{font:10.5px var(--mono);color:var(--tx3)}
+.ed .file{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:9px;font:11.5px var(--mono);color:var(--tx2);margin:6px 0}
+
+/* progressive blur where text slides under the toolbar */
+.pblur{position:absolute;left:0;right:0;bottom:0;height:56px;pointer-events:none;z-index:3}
+.pblur i{position:absolute;inset:0}
+.pblur i:nth-child(1){backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);-webkit-mask:linear-gradient(transparent 0%,#000 35%,#000 100%);mask:linear-gradient(transparent 0%,#000 35%,#000 100%)}
+.pblur i:nth-child(2){backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);-webkit-mask:linear-gradient(transparent 30%,#000 65%);mask:linear-gradient(transparent 30%,#000 65%)}
+.pblur i:nth-child(3){backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);-webkit-mask:linear-gradient(transparent 60%,#000 100%);mask:linear-gradient(transparent 60%,#000 100%)}
+.pblur::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent,rgba(6,6,7,.55))}
+
+.foot{position:relative;z-index:3;display:flex;align-items:center;gap:1px;height:50px;padding:0 8px;flex:none;touch-action:none}
+.foot::before{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent)}
+.foot .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+.notesbtn{margin-left:auto;display:flex;align-items:center;gap:7px;height:30px;padding:0 10px 0 12px;border-radius:99px;font-size:12px;font-weight:500;color:var(--tx2);
+  background:rgba(255,255,255,.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(255,255,255,.05);transition:color .15s,background .15s,transform .12s var(--out)}
+.notesbtn:active{transform:scale(.96)}
+.notesbtn b{font:500 10.5px var(--mono);color:var(--tx3)}
+.notesbtn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.8;transition:transform .45s var(--spring)}
+.panel.dopen .notesbtn{color:#fff;background:rgba(255,255,255,.09)}
+.panel.dopen .notesbtn svg{transform:rotate(180deg)}
+.status{position:absolute;left:50%;top:-24px;transform:translateX(-50%);font:10px var(--mono);color:var(--tx3);white-space:nowrap;pointer-events:none;opacity:.8}
+.status i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:1px;box-shadow:0 0 6px rgba(255,255,255,.7)}
+.status i.ping{animation:ping .7s var(--out)}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(255,255,255,.8)}100%{box-shadow:0 0 0 8px rgba(255,255,255,0)}}
+.status i.busy{background:#666;box-shadow:none}
+@media (hover:hover){.notesbtn:hover{color:var(--tx);background:rgba(255,255,255,.08)}}
+
+/* ---------- bottom drawer: pushes content up, no overlay ---------- */
+.drawer{position:relative;z-index:3;height:0;flex:none;overflow:hidden;transition:height .5s var(--spring)}
+.drawer.dragging{transition:none}
+.dwin{position:absolute;left:0;right:0;top:0;height:var(--dmax,320px);display:flex;flex-direction:column;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border-top:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.grab{display:grid;place-items:center;height:20px;flex:none;cursor:grab;touch-action:none}
+.grab i{width:36px;height:4px;border-radius:4px;background:rgba(255,255,255,.18);transition:background .2s,width .3s var(--spring)}
+@media (hover:hover){.grab:hover i{background:rgba(255,255,255,.4);width:44px}}
+.dtop{display:flex;gap:8px;align-items:center;padding:0 12px 10px;flex:none}
+.search{flex:1;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.4);border-radius:10px;padding:7px 10px;box-shadow:inset 0 1px 2px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06)}
+.search input{all:unset;font-size:12.5px;width:100%;color:var(--tx)}
+.search svg{width:13px;height:13px;stroke:var(--tx3);fill:none;stroke-width:1.8;flex:none}
+.chips{display:flex;gap:4px;padding:0 12px 10px;flex:none;overflow-x:auto}
+.chip{font-size:11.5px;color:var(--tx3);padding:4px 10px;border-radius:99px;white-space:nowrap;transition:color .15s,background .15s}
+.chip[aria-pressed=true]{color:#000;background:#fff;box-shadow:0 0 14px rgba(255,255,255,.35)}
+.cards{flex:1;overflow:auto;overscroll-behavior:contain;padding:0 12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;align-content:start}
+.card{--cx:50%;--cy:0%;position:relative;text-align:left;padding:11px 12px 10px;border-radius:14px;min-height:96px;display:flex;flex-direction:column;gap:4px;
+  background:rgba(255,255,255,.035);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(255,255,255,.05);overflow:hidden;
+  transition:transform .3s var(--spring),box-shadow .2s,background .2s,opacity .35s var(--out),filter .35s var(--out)}
+.card::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;background:radial-gradient(140px circle at var(--cx) var(--cy),rgba(255,255,255,.12),transparent 70%)}
+.card b{font-size:12.5px;font-weight:500;color:var(--tx);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.card p{margin:0;font-size:11.5px;line-height:1.45;color:var(--tx3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .m{margin-top:auto;display:flex;gap:8px;font:10px var(--mono);color:#555}
+.card .m span:first-child{margin-right:auto}
+.card.cur{background:rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 0 0 1px rgba(255,255,255,.22),0 0 24px -6px rgba(255,255,255,.25)}
+.card.new{align-items:center;justify-content:center;color:var(--tx3);font-size:12px;background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);border:1px dashed rgba(255,255,255,.12)}
+.card.new svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.5}
+.card:active{transform:scale(.97)}
+@media (hover:hover){.card:hover{transform:translateY(-2px)}.card:hover::before{opacity:1}.card.new:hover{color:#fff}}
+.cards.stagger .card{opacity:0;transform:translateY(10px);filter:blur(4px)}
+.empty{grid-column:1/-1;font-size:12px;color:var(--tx3);padding:16px 4px}
+
+.grip{position:absolute;right:3px;bottom:3px;width:18px;height:18px;cursor:nwse-resize;z-index:6}
+.grip::after{content:"";position:absolute;right:6px;bottom:6px;width:6px;height:6px;border-right:1.5px solid #444;border-bottom:1.5px solid #444;border-bottom-right-radius:3px}
+
+.drop{position:absolute;inset:10px;border:1px dashed rgba(255,255,255,.45);border-radius:18px;background:rgba(255,255,255,.04);display:none;place-items:center;z-index:6;font:500 12px var(--mono);color:#fff;pointer-events:none;text-shadow:0 0 10px rgba(255,255,255,.6)}
+.panel.dragover .drop{display:grid}
+
+.menu{position:absolute;z-index:8;width:214px;max-height:280px;overflow:auto;overscroll-behavior:contain;background:rgba(16,16,17,.97);border-radius:14px;padding:5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(255,255,255,.08),0 20px 40px rgba(0,0,0,.6);
+  opacity:0;transform:translateY(-4px) scale(.97);transform-origin:top left;pointer-events:none;transition:opacity .16s var(--out),transform .16s var(--out)}
+.menu.on{opacity:1;transform:none;pointer-events:auto}
+.menu .mh{font:10px var(--mono);color:var(--tx3);padding:5px 8px;letter-spacing:.06em}
+.menu button{display:flex;width:100%;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;text-align:left;font-size:12.5px;color:var(--tx2)}
+.menu button span{width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.06);display:grid;place-items:center;font:500 11px var(--mono);color:var(--tx2);flex:none}
+.menu button small{margin-left:auto;font:10px var(--mono);color:var(--tx3)}
+.menu button.hi{background:rgba(255,255,255,.08);color:#fff}
+
+.pop{position:absolute;top:50px;right:50px;z-index:9;background:rgba(16,16,17,.97);border-radius:14px;padding:12px 14px;width:212px;font-size:12px;color:var(--tx2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(255,255,255,.08),0 20px 40px rgba(0,0,0,.6);
+  opacity:0;transform:translateY(-4px) scale(.97);transform-origin:top right;pointer-events:none;transition:opacity .16s var(--out),transform .16s var(--out)}
+.pop.on{opacity:1;transform:none;pointer-events:auto}
+.pop input[type=range]{width:100%;accent-color:#fff;margin-top:8px}
+.pop label{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+
+/* ---------- minimised: a bare glass line on its edge or corner ---------- */
+.panel>.head,.panel>.main,.panel>.foot,.panel>.drawer,.panel>.grip,.panel>.cone,.panel>.coat{transition:opacity .28s var(--out) .14s}
+.panel.min>.head,.panel.min>.main,.panel.min>.foot,.panel.min>.drawer,.panel.min>.grip,.panel.min>.pop,.panel.min>.cone,.panel.min>.coat{opacity:0;pointer-events:none;transition:opacity .1s}
+.panel.min{border-radius:99px;cursor:grab;touch-action:none;background:linear-gradient(180deg,rgba(40,40,44,.9),rgba(8,8,9,.95));
+  box-shadow:0 0 0 1px rgba(0,0,0,.8),0 6px 18px rgba(0,0,0,.6),0 0 24px 2px rgba(255,255,255,.06)}
+.nubline{position:absolute;left:50%;top:50%;width:0;height:0;border-radius:4px;background:#fff;transform:translate(-50%,-50%);opacity:0;pointer-events:none;z-index:6;
+  box-shadow:0 0 6px rgba(255,255,255,.9),0 0 18px rgba(255,255,255,.35);transition:opacity .3s var(--out) .2s,width .4s var(--spring),height .4s var(--spring)}
+.panel.min .nubline{opacity:.55}
+.panel.min[data-anchor=l] .nubline,.panel.min[data-anchor=r] .nubline{width:2px;height:34px}
+.panel.min[data-anchor=t] .nubline,.panel.min[data-anchor=b] .nubline{width:34px;height:2px}
+.panel.min[data-anchor=tl] .nubline,.panel.min[data-anchor=tr] .nubline,.panel.min[data-anchor=bl] .nubline,.panel.min[data-anchor=br] .nubline{width:5px;height:5px;border-radius:50%}
+@media (hover:hover){.panel.min:hover{box-shadow:0 0 0 1px rgba(255,255,255,.18),0 6px 18px rgba(0,0,0,.6),0 0 32px 6px rgba(255,255,255,.14)}.panel.min:hover .nubline{opacity:1}}
+.panel.min:active{cursor:grabbing}
+/* while dragging, the line becomes a ball of light */
+.panel.orb{border-radius:50%!important;background:radial-gradient(circle at 50% 42%,#fff 0,#f2f2f3 22%,rgba(255,255,255,.55) 48%,rgba(40,40,44,.6) 78%)!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.5),0 0 18px 4px rgba(255,255,255,.55),0 0 60px 16px rgba(255,255,255,.18),0 0 140px 40px rgba(255,255,255,.06)!important}
+.panel.orb .nubline,.panel.orb .rim{opacity:0}
+/* grip sits on the corner facing the screen centre */
+.panel[data-anchor*=r] .grip{right:auto;left:3px;transform:scaleX(-1)}
+.panel[data-anchor*=b] .grip{bottom:auto;top:3px;transform:scaleY(-1)}
+.panel[data-anchor=br] .grip,.panel[data-anchor=br] .grip{transform:scale(-1,-1)}
+
+/* ---------- drag-to-place effect ---------- */
+.snapfx{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:0;transition:opacity .3s var(--out);--px:50%;--py:50%}
+.snapfx.on{opacity:1}
+.snapfx .dim{position:absolute;inset:0;background:radial-gradient(70% 70% at var(--px) var(--py),rgba(0,0,0,.35),rgba(0,0,0,.82));backdrop-filter:blur(4px) saturate(.4);-webkit-backdrop-filter:blur(4px) saturate(.4)}
+.snapfx canvas{position:absolute;inset:0;width:100%;height:100%}
+.slot{position:absolute;border-radius:99px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 0 14px rgba(255,255,255,.08);transform:scale(.3);opacity:0;
+  transition:transform .45s var(--spring),opacity .3s var(--out),background .2s,box-shadow .25s}
+.snapfx.on .slot{transform:none;opacity:1}
+.slot.near{background:#fff;box-shadow:0 0 0 1px #fff,0 0 14px 3px rgba(255,255,255,.85),0 0 70px 16px rgba(255,255,255,.28);transform:scale(1.3)!important}
+.slot.near::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:1px solid rgba(255,255,255,.7);animation:pulse 1s var(--out) infinite}
+@keyframes pulse{from{transform:scale(.7);opacity:1}to{transform:scale(2.2);opacity:0}}
+.ghost{position:absolute;border-radius:26px;border:1px dashed rgba(255,255,255,.4);background:rgba(255,255,255,.025);box-shadow:inset 0 0 60px rgba(255,255,255,.05),0 0 40px rgba(255,255,255,.05);
+  transition:left .4s var(--spring),top .4s var(--spring),width .4s var(--spring),height .4s var(--spring)}
+.ghost span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:500 11px var(--mono);letter-spacing:.14em;color:rgba(255,255,255,.75);text-shadow:0 0 12px rgba(255,255,255,.6);white-space:nowrap}
+.shock{position:absolute;z-index:11;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:1.5px solid #fff;pointer-events:none;
+  box-shadow:0 0 24px rgba(255,255,255,.7),inset 0 0 24px rgba(255,255,255,.5);animation:shock .75s var(--out) forwards}
+@keyframes shock{from{transform:scale(.2);opacity:1}to{transform:scale(11);opacity:0}}
+
+/* ---------- simulated Dock: the only place the logo lives ---------- */
+.dock{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:8;display:flex;align-items:flex-end;gap:9px;padding:7px 10px 9px;border-radius:22px;
+  background:rgba(28,28,30,.55);backdrop-filter:blur(24px) saturate(140%);-webkit-backdrop-filter:blur(24px) saturate(140%);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 0 0 1px rgba(255,255,255,.06),0 12px 30px rgba(0,0,0,.6)}
+.dock .app{width:46px;height:46px;border-radius:12px;position:relative;display:block;padding:0;transform-origin:bottom center;transition:transform .35s var(--spring)}
+.dock .g1{background:linear-gradient(160deg,#4a4a4f,#1d1d20)}.dock .g2{background:linear-gradient(160deg,#2f2f33,#0f0f11)}.dock .g3{background:linear-gradient(160deg,#5a5a60,#26262a)}
+.dock .g1::after,.dock .g2::after,.dock .g3::after{content:"";position:absolute;inset:13px;border-radius:50%;border:2px solid rgba(255,255,255,.25)}
+.dock .g2::after{border-radius:4px}.dock .g3::after{inset:15px 12px;border-radius:2px;border-width:0 0 2px}
+.dock .app img{width:100%;height:100%;display:block;pointer-events:none}
+.dock .app b{position:absolute;left:50%;bottom:-6px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:rgba(255,255,255,.85)}
+.dock .dsep{width:1px;align-self:stretch;margin:4px 1px;background:rgba(255,255,255,.12)}
+.dock .app.bounce{animation:dbounce .7s var(--out)}
+@keyframes dbounce{0%,100%{transform:none}30%{transform:translateY(-16px)}55%{transform:none}75%{transform:translateY(-6px)}}
+@media (hover:hover){.dock .app:hover{transform:scale(1.25) translateY(-5px)}
+  .dock .app[data-tip]:hover::before{content:attr(data-tip);position:absolute;bottom:62px;left:50%;transform:translateX(-50%) scale(.8);font:500 11px var(--ui);background:rgba(20,20,22,.95);color:#eee;padding:3px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 0 0 1px rgba(255,255,255,.08)}}
+
+.toast{position:absolute;left:50%;bottom:96px;transform:translate(-50%,12px) scale(.96);opacity:0;filter:blur(6px);z-index:40;background:rgba(0,0,0,.9);color:#eee;font:500 12px var(--mono);padding:8px 14px;border-radius:99px;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 0 0 1px rgba(255,255,255,.08);transition:.3s var(--out);pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,0);filter:none}
+
+/* ---------- Icon page ---------- */
+.iconpage{min-height:calc(100vh - 52px);display:flex;flex-direction:column;align-items:center;padding:64px 24px 120px;background:radial-gradient(40% 35% at 50% 32%,rgba(255,255,255,.06),transparent 70%),#000}
+.hero{position:relative;width:min(300px,70vw);aspect-ratio:1}
+.hero img{width:100%;height:100%;position:relative;z-index:1}
+.hero::before{content:"";position:absolute;inset:18%;border-radius:30%;background:#fff;opacity:.07;filter:blur(60px)}
+.hero .hs{position:absolute;inset:3%;border-radius:23%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}
+.hero .hs::after{content:"";position:absolute;top:-30%;bottom:-30%;width:45%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22) 48%,rgba(255,255,255,.45) 50%,rgba(255,255,255,.22) 52%,transparent);transform:translateX(-160%) skewX(-18deg);animation:sweep2 5s var(--out) infinite 1s}
+@keyframes sweep2{0%{transform:translateX(-160%) skewX(-18deg)}30%,100%{transform:translateX(320%) skewX(-18deg)}}
+.iconpage h1{font-size:34px;letter-spacing:-.03em;font-weight:600;margin:36px 0 6px;text-align:center}
+.iconpage .sub{color:var(--tx2);max-width:560px;text-align:center;margin:0}
+.sizes{display:flex;align-items:flex-end;gap:32px;margin:48px 0 0;flex-wrap:wrap;justify-content:center}
+.sizes figure{margin:0;text-align:center}
+.sizes figcaption{font:10.5px var(--mono);color:var(--tx3);margin-top:10px}
+.menubar{margin-top:44px;display:flex;align-items:center;gap:16px;height:30px;padding:0 14px;border-radius:9px;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);font-size:12.5px;color:var(--tx2)}
+.menubar svg{width:16px;height:16px}
+.spec{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;max-width:880px;width:100%;margin-top:48px}
+.spec div{border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.03);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(255,255,255,.05);font-size:12.5px;color:var(--tx2)}
+.spec b{display:block;color:var(--tx);font-weight:500;margin-bottom:4px;font-size:13px}
+.spec code{font:11px var(--mono);color:#ddd}
+
+/* ---------- docs (PRD + stack) ---------- */
+.doc{max-width:900px;margin:0 auto;padding:56px 24px 120px}
+.doc .eyebrow{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#fff;text-shadow:0 0 12px rgba(255,255,255,.5)}
+.doc h1{font-size:40px;line-height:1.1;letter-spacing:-.03em;font-weight:600;margin:10px 0 12px;text-wrap:balance}
+.doc .lede{font-size:17px;color:var(--tx2);max-width:680px;text-wrap:pretty}
+.doc h2{font-size:22px;letter-spacing:-.01em;font-weight:600;margin:56px 0 12px;padding-top:20px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:baseline}
+.doc h2 span{font:500 11px var(--mono);color:var(--tx3)}
+.doc h3{font-size:15px;font-weight:600;margin:28px 0 8px}
+.doc p,.doc li{color:#c4c4c9;text-wrap:pretty}
+.doc ul{padding-left:20px}
+.doc li{margin:5px 0}
+.doc strong{color:var(--tx);font-weight:500}
+.doc code{font:12.5px var(--mono);color:#e6e6e8}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.meta span{font:11px var(--mono);color:var(--tx2);border:1px solid var(--line);border-radius:99px;padding:4px 10px}
+.tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+.tblw{overflow-x:auto}
+.tbl th{text-align:left;font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);padding:10px 12px;border-bottom:1px solid var(--line2)}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:#c4c4c9}
+.tbl td:first-child{color:var(--tx);font-weight:500}
+.p0,.p1,.p2{font:500 10px var(--mono);padding:2px 7px;border-radius:5px;white-space:nowrap}
+.p0{background:#fff;color:#000;box-shadow:0 0 10px rgba(255,255,255,.35)}.p1{background:rgba(255,255,255,.12);color:var(--tx)}.p2{border:1px solid var(--line2);color:var(--tx2)}
+.cards2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.card2{border-radius:14px;padding:16px;background:rgba(255,255,255,.025);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(255,255,255,.05)}
+.card2 .k{font:500 10.5px var(--mono);color:var(--tx3);letter-spacing:.06em;text-transform:uppercase}
+.card2 .v{font-size:24px;font-weight:600;letter-spacing:-.02em;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+.card2 p{margin:0;font-size:12.5px;color:var(--tx2)}
+.callout{border-radius:14px;padding:16px 18px;margin:18px 0;background:rgba(255,255,255,.04);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 0 0 1px rgba(255,255,255,.12),0 0 60px -20px rgba(255,255,255,.2)}
+.callout b{color:#fff;font-weight:500}
+pre.code{font:12.5px/1.6 var(--mono);background:#000;border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;color:#d6d6da}
+.arch{display:grid;gap:10px;margin:18px 0}
+.arch .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.arch .box{border-radius:12px;padding:12px 14px;background:rgba(255,255,255,.03);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(255,255,255,.07)}
+.arch .box b{display:block;font-size:13px;font-weight:500;color:var(--tx)}
+.arch .box small{font:11px var(--mono);color:var(--tx3)}
+.arch .lbl{font:500 10.5px var(--mono);color:var(--tx3);letter-spacing:.08em;text-transform:uppercase;margin-top:6px}
+.win{box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 0 0 1px rgba(255,255,255,.3),0 0 30px -8px rgba(255,255,255,.3)!important;background:rgba(255,255,255,.05)!important}
+.src a{color:var(--tx2)}
+
+@media (max-width:720px){
+  .brand small{display:none}
+  .tabs button{padding:5px 9px}
+  .article h1{font-size:32px}
+  .doc h1{font-size:30px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="brand"><i class="bdot"></i>Margin <small>FLOATING NOTES FOR MAC · v0.3 SPEC</small></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-v="mock" aria-selected="true">Mockup</button>
+    <button role="tab" data-v="icon" aria-selected="false">Icon</button>
+    <button role="tab" data-v="prd" aria-selected="false">PRD</button>
+    <button role="tab" data-v="stack" aria-selected="false">Tech stack</button>
+  </div>
+</nav>
+
+<!-- ================= MOCKUP ================= -->
+<section class="view on" id="v-mock">
+  <div class="stage" id="stage">
+    <div class="flag"><span>SIMULATED · Chrome in a full-screen Space — Margin floats above it</span><button id="bTips" aria-controls="tips">How to try</button></div>
+    <article class="article" id="article">
+      <div class="kick">Essay · 9 min read</div>
+      <h1>The quiet power of writing in the margins</h1>
+      <div class="by">By a reader who kept losing their notes · margins.example/essays/quiet-power</div>
+      <p>Every serious reader eventually discovers that the best ideas show up mid-paragraph. Not before you start, not after you finish, but right in the middle of someone else's sentence. The trick is catching them without breaking the spell of reading.</p>
+      <p>Most note tools ask you to leave. Switch apps, find the right notebook, wait for a sync spinner, and by the time the cursor blinks the thought has already gone soft. A margin never asks you to leave. It sits right next to the text, patient and empty.</p>
+      <h2>Friction is the real enemy</h2>
+      <p>If capturing a thought costs more than two seconds, you will capture fewer thoughts. That is not a discipline problem, it is a design problem. The tools we reach for while reading should be closer to a pencil than to a filing cabinet.</p>
+      <blockquote>The note you take in the moment is worth ten you promise to write later.</blockquote>
+      <p>Drag this sentence into the panel on the right and watch it become a quote with its source attached. That is the whole idea: the reading surface and the writing surface share one screen, and moving between them costs nothing.</p>
+      <h2>Small, local, always there</h2>
+      <p>A margin tool has to be light enough to forget about. It should cost almost nothing to keep open all day, start instantly, and keep your words on your own disk as plain files you could open in any editor ten years from now.</p>
+      <p>It should also accept the messy stuff reading produces: a screenshot of a chart, a link to a paper, a short clip, a half-finished list of things to try. None of that should require a plugin or an account.</p>
+      <h2>What good looks like</h2>
+      <p>You press a key, a calm pane appears above whatever you are reading, you type, you press the key again, and it folds away into a thin line at the edge of the screen. Nothing else moves. Your page is exactly where you left it.</p>
+      <p>That is a deceptively small product. Building it well means caring about window layers, memory, and the feel of typing more than about features.</p>
+    </article>
+
+    <div class="tips" id="tips">
+      <b>Try the mockup</b>
+      <ul>
+        <li>Drag the header: 8 spots light up (4 edges, 4 corners)</li>
+        <li><b style="display:inline;margin:0">–</b> minimises it to a thin line; drag the line anywhere, or click it to open</li>
+        <li>Click the Margin icon in the Dock to show or hide it</li>
+        <li>Open <b style="display:inline;margin:0">All notes</b>, or drag the bottom bar up and flick it</li>
+        <li>Type <kbd>/</kbd>, or <kbd>#</kbd> <kbd>-</kbd> <kbd>[]</kbd> <kbd>&gt;</kbd> + space; drop images, links, text</li>
+        <li><kbd>⌥ Space</kbd> minimise · <kbd>⌃⌥ ←↑→↓</kbd> move · <kbd>⌥ N</kbd> new</li>
+      </ul>
+    </div>
+
+    <div class="panel boot" id="panel" data-anchor="r">
+      <div class="cone"></div><div class="coat"></div>
+      <div class="head" id="head">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="htitle" id="htitle">Untitled</div>
+        <button class="ib" id="bNew" data-tip="New note  ⌥N" aria-label="New note"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="ib on" id="bPin" data-tip="Float above all Spaces" aria-label="Pin above full-screen apps" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 13v7"/></svg></button>
+        <button class="ib" id="bOp" data-tip="Opacity" aria-label="Opacity"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg></button>
+        <button class="ib" id="bMin" data-tip="Minimise  ⌥Space" aria-label="Minimise"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+      </div>
+
+      <div class="pop" id="pop">
+        Panel opacity
+        <input type="range" id="op" min="35" max="100" value="100" aria-label="Panel opacity">
+        <label>Click-through when faded <input type="checkbox" id="ct"></label>
+        <label>Hide on screen share <input type="checkbox" checked></label>
+      </div>
+
+      <div class="main">
+        <div class="ed" id="ed" contenteditable="true" spellcheck="false"></div>
+        <div class="pblur"><i></i><i></i><i></i></div>
+        <div class="drop">Drop to embed · stays on this Mac</div>
+        <div class="menu" id="menu"></div>
+      </div>
+
+      <div class="foot" id="foot">
+        <div class="status" id="status"><i></i>Saved · local</div>
+        <button class="ib" data-cmd="h1" data-tip="Heading" aria-label="Heading"><svg viewBox="0 0 24 24"><path d="M5 5v14M14 5v14M5 12h9M18 10l2-1v10"/></svg></button>
+        <button class="ib" data-cmd="ul" data-tip="Bullet list" aria-label="Bullets"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r=".8"/><circle cx="4.5" cy="12" r=".8"/><circle cx="4.5" cy="18" r=".8"/></svg></button>
+        <button class="ib" data-cmd="todo" data-tip="To-do" aria-label="To-do"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></button>
+        <button class="ib" data-cmd="code" data-tip="Code" aria-label="Code block"><svg viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4"/></svg></button>
+        <div class="sep"></div>
+        <button class="ib" data-cmd="media" data-tip="Image / video" aria-label="Add image or video"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg></button>
+        <button class="ib" data-cmd="shot" data-tip="Snap region  ⌃⌥S" aria-label="Screenshot"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="2.5"/></svg></button>
+        <button class="ib" data-cmd="clip" data-tip="Clip current tab" aria-label="Clip current Chrome tab"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg></button>
+        <button class="notesbtn" id="bNotes" aria-expanded="false" aria-controls="drawer">All notes <b id="ncount">0</b><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+      </div>
+
+      <div class="drawer" id="drawer" aria-label="All notes">
+        <div class="dwin">
+          <div class="grab" id="grab" title="Drag to resize · flick to close"><i></i></div>
+          <div class="dtop">
+            <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></svg><input id="q" placeholder="Search all notes" aria-label="Search notes"></div>
+          </div>
+          <div class="chips" id="chips">
+            <button class="chip" data-f="all" aria-pressed="true">All</button>
+            <button class="chip" data-f="todo" aria-pressed="false">To-dos</button>
+            <button class="chip" data-f="media" aria-pressed="false">Media</button>
+            <button class="chip" data-f="link" aria-pressed="false">Links</button>
+            <button class="chip" data-f="quote" aria-pressed="false">Quotes</button>
+          </div>
+          <div class="cards" id="cards"></div>
+        </div>
+      </div>
+
+      <div class="nubline"></div><div class="rim"></div><div class="sheen"></div>
+      <div class="grip" id="grip"></div>
+      <input type="file" id="file" accept="image/*,video/*" multiple hidden>
+    </div>
+    <div class="snapfx" id="snapfx"><div class="dim"></div><canvas id="fxc"></canvas><div class="ghost" id="ghost"><span>RIGHT</span></div></div>
+    <div class="dock" id="dock" aria-label="Dock">
+      <i class="app g1" data-tip="Finder"></i><i class="app g2" data-tip="Terminal"></i><i class="app g3" data-tip="Chrome"><b></b></i>
+      <span class="dsep"></span>
+      <button class="app" id="dockM" data-tip="Margin" aria-label="Margin: show or minimise"><img src="icon.svg" alt=""><b></b></button>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+</section>
+
+<!-- ================= ICON ================= -->
+<section class="view" id="v-icon">
+  <div class="iconpage">
+    <div class="hero"><img src="icon.svg" alt="Margin app icon"><div class="hs"></div></div>
+    <h1>Margin app icon</h1>
+    <p class="sub">A black glass body lit from above, with stacked notes behind one frosted sheet. The glowing line on the front sheet is the margin and the cursor. The panel uses the same material: dark glass, a white rim light and a soft light from the top.</p>
+    <div class="sizes">
+      <figure><img src="icon.svg" width="128" height="128" alt=""><figcaption>128 · Dock</figcaption></figure>
+      <figure><img src="icon.svg" width="64" height="64" alt=""><figcaption>64 · Launchpad</figcaption></figure>
+      <figure><img src="icon.svg" width="32" height="32" alt=""><figcaption>32 · Finder</figcaption></figure>
+      <figure><img src="icon.svg" width="16" height="16" alt=""><figcaption>16 · list</figcaption></figure>
+    </div>
+    <div class="menubar" aria-label="Menu bar preview">
+      <svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.3"><rect x="1.5" y="4" width="5" height="8" rx="1.6" opacity=".45"/><rect x="5.5" y="2" width="9" height="12" rx="2.2"/><path d="M8.2 5v6" stroke-linecap="round"/></svg>
+      <span>Menu bar template glyph</span>
+      <span style="color:var(--tx3);font:10.5px var(--mono)">16 pt · monochrome</span>
+    </div>
+    <div class="spec">
+      <div><b>Body</b><code>#26262A → #0D0D0E → #040404</code><br>Squircle, 22% corner radius, a light from the top at 18% white.</div>
+      <div><b>Rim light</b><code>white 60% → 4% → 26%</code><br>A 1.5 pt stroke, brightest on the top edge, like light catching a polished edge.</div>
+      <div><b>Frosted sheet</b><code>blur 16 · white 40% → 5%</code><br>It blurs the pages behind it, and a warm amber reflection sits on its right edge.</div>
+      <div><b>Glow</b><code>0 0 8 / 32 / 128 · #FFF</code><br>Three white glow sizes, from your reference, used for active states only.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRD ================= -->
+<section class="view" id="v-prd">
+<div class="doc">
+  <div class="eyebrow">Product requirements · Draft 3</div>
+  <h1>Margin: a floating, local-first notepad for Mac</h1>
+  <p class="lede">A small black-glass panel that floats above anything, including full-screen Chrome, so you can write, paste and drop things while you read. It has Notion-style markdown and unlimited notes, needs no account, and uses little enough memory to leave running all day.</p>
+  <div class="meta"><span>Platform: macOS 14+</span><span>Owner: you</span><span>Status: Spec</span><span>Updated: 23 Nov 2026</span></div>
+
+  <h2><span>01</span>Problem</h2>
+  <p>When you read in a full-screen browser, taking a note means leaving the page. macOS full-screen Spaces hide every normal window, so Notes, Notion and Obsidian all force a Space switch. Each switch breaks your focus, and web-based note apps use 300–600 MB of RAM just to stay open. Ideas end up scattered across bookmarks, desktop screenshots and half-written messages to yourself.</p>
+
+  <h2><span>02</span>Goals &amp; non-goals</h2>
+  <h3>Goals</h3>
+  <ul>
+    <li><strong>Always within reach.</strong> One global hotkey shows the panel over any app, including full-screen Spaces. It doesn't take focus from the page underneath until you click into it.</li>
+    <li><strong>Fast capture.</strong> Under 150 ms from hotkey to typing. Dropping, pasting and clipping each take one gesture.</li>
+    <li><strong>Notion-style editing.</strong> Markdown shortcuts and a <code>/</code> menu, saved as plain <code>.md</code> files.</li>
+    <li><strong>Unlimited local notes.</strong> No account, no cloud and no telemetry by default.</li>
+    <li><strong>Featherweight.</strong> Under 40 MB of RAM and 0% CPU when idle, so it's safe to launch at login.</li>
+    <li><strong>Feels premium.</strong> The panel looks like a black-glass object, and its motion follows the pointer and can be interrupted at any point.</li>
+  </ul>
+  <h3>Non-goals (v1)</h3>
+  <ul>
+    <li>Sync, sharing, collaboration or a web version</li>
+    <li>Databases, tables, nested pages, backlinks</li>
+    <li>iOS / iPad app, Windows or Linux</li>
+    <li>AI features (at most a later, opt-in, on-device add-on)</li>
+  </ul>
+
+  <h2><span>03</span>Users</h2>
+  <div class="cards2">
+    <div class="card2"><div class="k">Primary</div><div class="v">The deep reader</div><p>Reads long blogs, papers and docs in full-screen Chrome. Wants quotes, thoughts and screenshots in one place without switching Spaces.</p></div>
+    <div class="card2"><div class="k">Secondary</div><div class="v">The builder</div><p>Watches tutorials or reads API docs while coding. Needs a floating scratchpad over the editor for snippets, links and to-dos.</p></div>
+    <div class="card2"><div class="k">Tertiary</div><div class="v">The meeting taker</div><p>Takes notes during a full-screen call without the panel showing up in the screen share.</p></div>
+  </div>
+
+  <h2><span>04</span>Key user stories</h2>
+  <ul>
+    <li>As a reader in full-screen Chrome, I press <span class="kbd">⌥ Space</span> and a panel appears above the page, so I can write without leaving.</li>
+    <li>I select a sentence on the page and drag it into the panel. It becomes a quote with the page title and URL attached.</li>
+    <li>I press <span class="kbd">⌃⌥ S</span>, drag over a region, and the screenshot appears in my current note.</li>
+    <li>I click “Clip tab” and the URL and title of the front Chrome tab become a link card.</li>
+    <li>I tap “All notes” or drag up from the bottom. A drawer slides up, pushing my note up instead of covering it, and I can search, filter and switch notes.</li>
+    <li>I put the panel on any of 8 spots (4 edges, 4 corners) by dragging it. While I drag, the screen dims and every spot lights up, so I can see where it will land.</li>
+    <li>I minimise it to a thin glowing line on its edge, with no text or logo. I know it's there, but it doesn't pull my eye off the page. I click the line to open it, or drag it to another spot.</li>
+  </ul>
+
+  <h2><span>05</span>Functional requirements</h2>
+  <div class="tblw"><table class="tbl">
+    <tr><th>Area</th><th>Requirement</th><th>Priority</th></tr>
+    <tr><td>Window</td><td>A floating panel that doesn't take focus when shown and appears on every Space, including over other apps' full-screen windows. It remembers its position and size for each display.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Window</td><td>Three states: <strong>Writing</strong> (editor only), <strong>Notes open</strong> (bottom drawer pushes the editor up) and <strong>Minimised</strong>: a bare glass line on its edge (8×84 on the sides, 84×8 on top or bottom) or a small dot in a corner, with no text or logo. One continuous size-and-shape change between them, never a cross-fade between two windows.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Window</td><td>Global hotkey to show and hide the panel (default <span class="kbd">⌥ Space</span>, rebindable). The app icon appears only in the Dock; clicking it shows or minimises the panel. A menu bar item holds settings.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Placement</td><td>8 snap spots: the four edges (centred) and the four corners, inside the screen's visible area, so it never sits under the Dock or the menu bar. The spot is remembered per display. <span class="kbd">⌃⌥ + arrows</span> moves between spots.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Placement</td><td>Drag to place, from the expanded header or from the minimised line. The screen dims, all 8 spots appear, the nearest one glows and pulses, and a ghost outline shows where the panel will open. On release, the flick speed is projected forward and the panel springs to the chosen spot with a shockwave.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Window</td><td>Opacity slider from 35% to 100%. Optional click-through when faded. A toggle to hide the panel from screen capture and screen sharing.</td><td><span class="p1">P1</span></td></tr>
+    <tr><td>Drawer</td><td>Opens from the bottom edge and pushes the editor and toolbar up, with no overlay or dimming. The editor keeps its scroll position anchored to the bottom so the line you're writing stays visible.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Drawer</td><td>Drag the handle (or the toolbar) to resize it. It follows the pointer exactly, resists past its maximum height, and on release uses your flick speed to decide whether to open or close.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Drawer</td><td>Contains search, filter chips (All, To-dos, Media, Links, Quotes), a “New note” card and a grid of note cards showing the title, a two-line snippet, the time and counts.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Editor</td><td>Live markdown shortcuts: <code>#</code>, <code>##</code>, <code>###</code>, <code>-</code>, <code>1.</code>, <code>[]</code>, <code>&gt;</code>, <code>```</code>, <code>---</code>, plus inline bold, italic, code and links.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Editor</td><td>A <code>/</code> menu you can filter by typing: Text, H1–H3, Bullets, Numbered, To-do, Quote, Code, Divider, Image, Screenshot, Clip tab.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Editor</td><td>A bottom toolbar with no more than 7 actions, plus the standard shortcuts: ⌘B, ⌘I, ⌘K, ⌘⇧7/8, ⌘Z.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Media</td><td>Drop or paste images (PNG, JPG, HEIC, GIF, WebP), videos (MP4, MOV) and any other file (shown as a chip). Each one is copied into the notes folder's <code>assets/</code> folder.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Media</td><td>Pasted or dropped URLs become link cards. Text dragged from a browser becomes a quote with its source URL.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Capture</td><td>Region screenshot by hotkey (ScreenCaptureKit), and “Clip tab” for the front tab in Chrome, Safari or Arc (Apple Events).</td><td><span class="p1">P1</span></td></tr>
+    <tr><td>Notes</td><td>Unlimited notes. Create one in a single keystroke; the title comes from the first line; sorted by last edit; pin to top; delete moves to the Trash.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Notes</td><td>Instant full-text search (SQLite FTS5) as you type.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>Storage</td><td>One <code>.md</code> file per note plus an <code>assets/</code> folder, in a folder you choose. Saves automatically 300 ms after you stop typing, and picks up edits made outside the app.</td><td><span class="p0">P0</span></td></tr>
+    <tr><td>System</td><td>Launch at login (SMAppService). Respects the system Reduce Motion and Reduce Transparency settings.</td><td><span class="p1">P1</span></td></tr>
+  </table></div>
+
+  <h2><span>06</span>Window behaviour spec</h2>
+  <ul>
+    <li>An <strong>NSPanel</strong> with <code>.nonactivatingPanel</code>, so showing it never pulls you out of Chrome's full-screen Space.</li>
+    <li>Collection behaviour <code>.canJoinAllSpaces</code>, <code>.fullScreenAuxiliary</code>, <code>.stationary</code> and <code>.ignoresCycle</code>. The window level is <code>.floating</code>, raised to <code>.statusBar</code> while another app is full screen.</li>
+    <li>The logo lives only in the Dock, so the app runs with the <strong>regular</strong> activation policy. If the M0 spike shows a regular app can't float over another app's full-screen Space, it switches to <code>.accessory</code> while a full-screen app is in front. The Dock is hidden in full-screen Spaces anyway, so nobody sees the icon disappear.</li>
+    <li>Other settings: <code>hidesOnDeactivate = false</code>, <code>becomesKeyOnlyIfNeeded = true</code>, and <code>sharingType = .none</code> while “hide on screen share” is on.</li>
+    <li>Acceptance test: with Chrome in full screen, pressing the hotkey shows the panel within 150 ms and Chrome stays full screen.</li>
+  </ul>
+
+  <h2><span>07</span>Material, light &amp; motion</h2>
+  <p>The panel and the icon share one material. Motion follows the <a href="https://www.ui-skills.com/skills/emilkowalski/apple-design" target="_blank" rel="noopener">apple-design</a> and <a href="https://www.ui-skills.com/skills/jakubkrehel/better-ui" target="_blank" rel="noopener">better-ui</a> guidance on ui-skills.com.</p>
+  <div class="tblw"><table class="tbl">
+    <tr><th>Effect</th><th>Spec</th><th>Native implementation</th></tr>
+    <tr><td>Black glass</td><td>Dark blur behind the panel (40 px), with a gradient from 30/30/33 at 80% to 6/6/7 at 90%.</td><td><code>NSVisualEffectView(.hudWindow)</code> plus a gradient layer</td></tr>
+    <tr><td>Rim light</td><td>A 1 px gradient border: 34% white on top, fading to 3%, then 14% on the bottom edge.</td><td>Masked <code>CAGradientLayer</code> on the border</td></tr>
+    <tr><td>Specular hotspot</td><td>A 180 px white highlight on the rim that follows the pointer, only while the pointer is over the panel.</td><td>Local mouse-move tracking; no global monitor</td></tr>
+    <tr><td>Light cone</td><td>A soft light shining down from above the header, like the spotlight reference.</td><td>A static radial gradient layer</td></tr>
+    <tr><td>Tank-shine sweep</td><td>A slanted band of reflected light sweeps across in 1.15 s, once on show, on open, on landing and when you hover the minimised line. It never loops.</td><td>A one-shot <code>CABasicAnimation</code> on a gradient layer</td></tr>
+    <tr><td>Clearcoat band</td><td>A curved reflection across the top that shifts sideways with the pointer, up to ±24 px.</td><td>Moves with the same pointer tracking as the hotspot</td></tr>
+    <tr><td>Glow</td><td>White glows of 8, 32 and 128 px, used only on active states: pin, checked to-dos, the selected note and quote bars.</td><td><code>shadowColor = white</code></td></tr>
+    <tr><td>Drawer</td><td>Spring easing <code>cubic-bezier(.32,.72,0,1)</code> over 500 ms. Can be grabbed mid-motion, follows the pointer exactly, resists past its limit and uses flick speed on release.</td><td><code>.spring(response: 0.3, dampingFraction: 0.8)</code></td></tr>
+    <tr><td>Minimise</td><td>The same object shrinks into its edge line in 550 ms with the spring curve while its contents fade out in 100 ms. A white line, or a dot in corners, glows at 55% and brightens on hover.</td><td><code>NSAnimationContext</code> frame animation</td></tr>
+    <tr><td>Drag to place</td><td>The line turns into a ball of white light that stretches in the direction of travel and leaves a fading trail. The screen dims and desaturates around the pointer. A dot grid leans toward the pointer and ripples outward. Spots within 110 px pull the orb in like a magnet, and a dashed beam links the orb to its target. On drop, a shockwave ring expands from the spot.</td><td>A transparent full-screen overlay window, drawn with Metal or Core Animation <b>only while dragging</b></td></tr>
+    <tr><td>Show</td><td>Scales from 0.955 to 1 while fading in and coming into focus from a 12 px blur, then the tank shine sweeps once.</td><td>A layer transform plus the sweep</td></tr>
+    <tr><td>Note switch</td><td>Fades out, then in, with a 6 px rise and a 4 px blur, in 180 ms.</td><td>Text view snapshot crossfade</td></tr>
+    <tr><td>Drawer cards</td><td>Stagger in 28 ms apart, only the first time the drawer opens. Later opens are instant.</td><td>Repeated motion is kept to a minimum</td></tr>
+    <tr><td>Press</td><td>Scales to 0.92–0.97 on press, not on release.</td><td>Highlight on mouse-down</td></tr>
+    <tr><td>Edge blur</td><td>Text fades into three blur layers (1, 3 and 8 px) as it scrolls under the toolbar.</td><td>Stacked, masked blur views</td></tr>
+  </table></div>
+  <p>Every effect is driven by an event and none loops while idle, which keeps idle CPU at 0%. Reduce Motion turns all of it into instant changes. Reduce Transparency switches the glass to solid #0D0D0E.</p>
+
+  <h2><span>08</span>Performance budget</h2>
+  <div class="cards2">
+    <div class="card2"><div class="k">Idle RAM</div><div class="v">&lt; 40 MB</div><p>Minimised, with 200 notes on disk. Never more than 80 MB, even with a note of 20 images open.</p></div>
+    <div class="card2"><div class="k">Idle CPU</div><div class="v">0.0%</div><p>No timers, loops or global mouse tracking.</p></div>
+    <div class="card2"><div class="k">Hotkey → type</div><div class="v">&lt; 150 ms</div><p>The panel stays loaded and hidden; it is never closed and rebuilt.</p></div>
+    <div class="card2"><div class="k">Cold launch</div><div class="v">&lt; 400 ms</div><p>The app is under 15 MB and shows “Low” energy impact in Activity Monitor.</p></div>
+  </div>
+
+  <h2><span>09</span>Data model &amp; storage</h2>
+<pre class="code">~/Margin/                       ← you choose; default ~/Documents/Margin
+├── 2026-11-23 Quiet power of margins.md
+├── Ideas inbox.md
+├── assets/
+│   ├── 7f3a…c1.png             ← named by content hash, so duplicates are stored once
+│   └── 91be…02.mov
+└── .margin/
+    └── index.sqlite            ← search index + pinned / created / source URL</pre>
+  <p>The markdown files are the source of truth; the search index can be deleted and rebuilt at any time. Media uses relative links, so the folder opens cleanly in Obsidian, VS Code or any other editor.</p>
+
+  <h2><span>10</span>Privacy &amp; permissions</h2>
+  <ul>
+    <li>Fully offline. The only network call is the optional fetch of link previews.</li>
+    <li>Permissions are requested only when a feature first needs them: Screen Recording for screenshots, Automation for clipping a tab.</li>
+    <li>Sandboxed, notarised and distributed as a signed DMG, with the Mac App Store later.</li>
+  </ul>
+
+  <h2><span>11</span>Milestones</h2>
+  <div class="tblw"><table class="tbl">
+    <tr><th>Milestone</th><th>Scope</th><th>Estimate</th></tr>
+    <tr><td>M0 · Spike</td><td>The panel over full-screen Chrome on macOS 14, 15 and 26, plus the hotkey, minimise morph, 8-spot placement and the Dock-icon policy switch.</td><td>3 days</td></tr>
+    <tr><td>M1 · Editor</td><td>TextKit 2 markdown editor with live styling, shortcuts, the slash menu and autosave.</td><td>2 weeks</td></tr>
+    <tr><td>M2 · Drawer &amp; search</td><td>The push-up drawer with drag gestures, cards, filters, FTS5 search and watching the folder for outside edits.</td><td>1.5 weeks</td></tr>
+    <tr><td>M3 · Media</td><td>Drop, paste, link cards, video, region screenshots and clip tab.</td><td>1.5 weeks</td></tr>
+    <tr><td>M4 · Material &amp; polish</td><td>Rim light, sheen, glows, icon export, Reduce Motion and Reduce Transparency, a memory soak test, notarisation.</td><td>1 week</td></tr>
+  </table></div>
+
+  <h2><span>12</span>Risks &amp; open questions</h2>
+  <ul>
+    <li><strong>How windows behave over full-screen apps can change between macOS releases.</strong> Mitigation: the M0 spike on three versions, plus an automated UI test.</li>
+    <li><strong>Pointer-driven light must not cost idle CPU.</strong> Track the pointer only while it's over the panel, limited to the display's frame rate.</li>
+    <li><strong>Blocks in TextKit are real work.</strong> Keep the v1 block set narrow.</li>
+    <li>Should the drawer remember its height between sessions? Proposed: yes, per display.</li>
+    <li><strong>The drag overlay covers the whole screen.</strong> It is created when a drag starts and destroyed on drop, so it costs nothing while idle.</li>
+  </ul>
+</div>
+</section>
+
+<!-- ================= STACK ================= -->
+<section class="view" id="v-stack">
+<div class="doc">
+  <div class="eyebrow">Tech stack research</div>
+  <h1>Go native: an AppKit panel, a SwiftUI interface and a TextKit 2 editor</h1>
+  <p class="lede">Two requirements decide this. The panel has to float over another app's full-screen Space, and it has to cost almost nothing to leave open all day. The material and motion also need real window blur and smooth native animation. Native Swift is the only option that does all of this without workarounds.</p>
+
+  <div class="callout"><b>Recommendation.</b> An <code>NSPanel</code> hosts SwiftUI for the header, drawer and toolbar, and an <code>NSTextView</code> on TextKit 2 does the markdown editing. Core Animation layers draw the rim light, sheen and glow. Notes are stored as <code>.md</code> files with a GRDB + FTS5 search index. Expected idle memory is 25–45 MB.</div>
+
+  <h2><span>01</span>Options compared</h2>
+  <div class="tblw"><table class="tbl">
+    <tr><th></th><th>Native Swift (AppKit + SwiftUI)</th><th>Tauri 2 (Rust + WKWebView)</th><th>Electron</th></tr>
+    <tr><td>Idle RAM</td><td>~25–50 MB</td><td>~40–110 MB across processes</td><td>~130–170 MB+</td></tr>
+    <tr><td>Bundle size</td><td>5–15 MB</td><td>5–15 MB</td><td>90–150 MB</td></tr>
+    <tr><td>Float over full-screen Spaces</td><td>Built in: NSPanel and an accessory app</td><td>Through the tauri-nspanel plugin</td><td>Partial and inconsistent</td></tr>
+    <tr><td>Glass, blur, glow, sheen</td><td>Core Animation, GPU, no idle cost</td><td>CSS <code>backdrop-filter</code> works, but costs more GPU</td><td>Same as Tauri</td></tr>
+    <tr><td>Spring drawer, minimise morph, drag overlay</td><td>SwiftUI springs, interruptible</td><td>Motion / CSS</td><td>Motion / CSS</td></tr>
+    <tr><td>Markdown block editor</td><td>Built on TextKit 2 (the most effort)</td><td>Ready-made: TipTap, Milkdown</td><td>Same as Tauri</td></tr>
+    <tr><td>Verdict</td><td class="win" style="color:var(--tx)">Best fit</td><td>Good fallback</td><td>Too heavy</td></tr>
+  </table></div>
+
+  <h2><span>02</span>Architecture</h2>
+  <div class="arch">
+    <div class="lbl">Shell · AppKit</div>
+    <div class="row">
+      <div class="box"><b>AppDelegate</b><small>Dock icon, menu bar item, activation-policy switch</small></div>
+      <div class="box"><b>FloatingPanel : NSPanel</b><small>doesn't take focus, every Space, full-screen auxiliary</small></div>
+      <div class="box"><b>HotkeyService</b><small>KeyboardShortcuts</small></div>
+    </div>
+    <div class="lbl">Material · Core Animation</div>
+    <div class="row">
+      <div class="box"><b>GlassView</b><small>NSVisualEffectView .hudWindow + gradient</small></div>
+      <div class="box"><b>RimLightLayer</b><small>masked gradient border + pointer hotspot</small></div>
+      <div class="box"><b>SheenLayer</b><small>one-shot sweep, no loops</small></div>
+    </div>
+    <div class="lbl">UI · SwiftUI in NSHostingView</div>
+    <div class="row">
+      <div class="box"><b>Placement</b><small>8 spots in visibleFrame, panel ⇄ edge line</small></div>
+      <div class="box"><b>SnapOverlay</b><small>full-screen window, only during drags</small></div>
+      <div class="box win"><b>NotesDrawer</b><small>pushes content up; DragGesture + velocity, springs</small></div>
+      <div class="box"><b>Toolbar + Slash menu</b><small>7 actions at most</small></div>
+    </div>
+    <div class="lbl">Editor · TextKit 2</div>
+    <div class="row">
+      <div class="box"><b>MarkdownTextView : NSTextView</b><small>live styling and attachments, bottom-anchored scroll</small></div>
+      <div class="box"><b>Parser</b><small>swift-markdown ⇄ attributed text</small></div>
+    </div>
+    <div class="lbl">Data</div>
+    <div class="row">
+      <div class="box"><b>NoteStore</b><small>.md files, atomic writes</small></div>
+      <div class="box"><b>SearchIndex</b><small>GRDB + FTS5</small></div>
+      <div class="box"><b>AssetStore</b><small>named by content hash, ImageIO thumbnails</small></div>
+    </div>
+  </div>
+
+  <h2><span>03</span>The panel and the drawer, in code</h2>
+<pre class="code">final class FloatingPanel: NSPanel {
+  init(content: NSView) {
+    super.init(contentRect: .init(x: 0, y: 0, width: 440, height: 600),
+               styleMask: [.nonactivatingPanel, .titled, .resizable, .fullSizeContentView],
+               backing: .buffered, defer: false)
+    isFloatingPanel = true; level = .floating
+    collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+    hidesOnDeactivate = false; becomesKeyOnlyIfNeeded = true
+    titlebarAppearsTransparent = true; titleVisibility = .hidden
+    backgroundColor = .clear; isOpaque = false; hasShadow = true
+    contentView = content
+  }
+  override var canBecomeKey: Bool { true }
+}
+
+// The drawer pushes the editor up: a VStack, not an overlay
+VStack(spacing: 0) {
+  Header()
+  MarkdownEditor(anchorBottom: true)      // keeps the caret in view while it shrinks
+  Toolbar(onDrag: drawer.track)
+  NotesDrawer().frame(height: drawer.height)
+}
+.animation(.spring(response: 0.3, dampingFraction: 0.8), value: drawer.isOpen)</pre>
+
+  <h2><span>04</span>Libraries</h2>
+  <ul>
+    <li><strong>KeyboardShortcuts</strong> for global hotkeys the user can rebind.</li>
+    <li><strong>swift-markdown</strong> (Apple's, built on cmark-gfm) to parse and write markdown.</li>
+    <li><strong>GRDB.swift</strong> for SQLite and FTS5 search.</li>
+    <li>System frameworks: <strong>LinkPresentation</strong>, <strong>ScreenCaptureKit</strong>, <strong>AVKit</strong> and <strong>ImageIO</strong>.</li>
+    <li><strong>Sparkle</strong> for updates outside the App Store.</li>
+  </ul>
+
+  <h2><span>05</span>Why not SwiftUI's TextEditor?</h2>
+  <p>On macOS 26, <code>TextEditor</code> supports rich text through <code>AttributedString</code>, but developers report that it still can't embed images, video or checkboxes in the text. Those are central here, so the editor uses <code>NSTextView</code> on TextKit 2 instead.</p>
+
+  <h2><span>06</span>If you'd rather build with web skills</h2>
+  <p>Use <strong>Tauri 2 with TipTap</strong>, plus <code>tauri-nspanel</code> to make the window a real floating panel. Everything in this mockup ports almost directly to it. You'd trade a faster editor build for more memory and GPU use. Avoid Electron.</p>
+
+  <h2><span>07</span>Sources</h2>
+  <ul class="src">
+    <li><a href="https://developer.apple.com/forums/thread/826308" target="_blank" rel="noopener">Apple Developer Forums: overlay window above all windows, even when moving Spaces</a></li>
+    <li><a href="https://developer.apple.com/forums/thread/800091" target="_blank" rel="noopener">Apple Developer Forums: NSWindowCollectionBehavior in full-screen Spaces</a></li>
+    <li><a href="https://qiita.com/a_jike/items/7eb5240b5ecb9a0c4fd7" target="_blank" rel="noopener">Qiita: non-activating panel over full-screen apps</a></li>
+    <li><a href="https://github.com/mitchchn/FunWithPanels" target="_blank" rel="noopener">GitHub: FunWithPanels</a></li>
+    <li><a href="https://betterstack.com/community/guides/scaling-nodejs/tauri-vs-electron-vs-deno-vs-electrobun/" target="_blank" rel="noopener">Better Stack: Tauri vs Electron vs Deno vs Electrobun</a></li>
+    <li><a href="https://tech-insider.org/tauri-vs-electron-2026/" target="_blank" rel="noopener">Tech Insider: Tauri vs Electron 2026</a></li>
+    <li><a href="https://dev.to/gethopp/tauri-vs-electron-performance-bundle-size-and-the-real-trade-offs-1el4" target="_blank" rel="noopener">DEV: Tauri vs Electron performance and bundle size</a></li>
+    <li><a href="https://developer.apple.com/videos/play/wwdc2025/280" target="_blank" rel="noopener">WWDC25: Cook up a rich text experience in SwiftUI</a></li>
+    <li><a href="https://developer.apple.com/forums/thread/787898" target="_blank" rel="noopener">Apple Developer Forums: TextEditor and text attachments</a></li>
+    <li><a href="https://www.ui-skills.com/skills/emilkowalski/apple-design" target="_blank" rel="noopener">ui-skills.com: apple-design (springs, sheets, rubber-banding)</a></li>
+    <li><a href="https://www.ui-skills.com/skills/jakubkrehel/better-ui" target="_blank" rel="noopener">ui-skills.com: better-ui (shadows, outlines, hover)</a></li>
+  </ul>
+</div>
+</section>
+
+<script>
+(function(){
+/* ---------- tabs ---------- */
+const VIEWS=['mock','icon','prd','stack'];
+const tabs=document.querySelectorAll('.tabs button');
+function show(v){tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.v===v));document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));try{history.replaceState(null,'','#'+v)}catch(e){}}
+tabs.forEach(t=>t.onclick=()=>{show(t.dataset.v);window.scrollTo(0,0)});
+const h=(location.hash||'').slice(1); if(VIEWS.includes(h)) show(h);
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
+const panel=$('#panel'),ed=$('#ed'),menu=$('#menu'),stage=$('#stage'),drawer=$('#drawer'),cardsEl=$('#cards');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),1800)}
+try{document.execCommand('defaultParagraphSeparator',false,'div')}catch(e){}
+const ARTICLE={title:'The quiet power of writing in the margins',url:'https://margins.example/essays/quiet-power',domain:'margins.example'};
+
+/* ---------- light: rim hotspot + clearcoat + sheen ---------- */
+let raf=0,lp=null;
+panel.addEventListener('pointermove',e=>{lp=e;if(raf)return;raf=requestAnimationFrame(()=>{raf=0;const r=panel.getBoundingClientRect();
+  panel.style.setProperty('--mx',(lp.clientX-r.left)+'px');panel.style.setProperty('--my',(lp.clientY-r.top)+'px');
+  panel.style.setProperty('--sx',(((lp.clientX-r.left)/r.width)-.5).toFixed(3))})});
+panel.addEventListener('pointerleave',()=>{panel.style.setProperty('--mx','50%');panel.style.setProperty('--my','-30%');panel.style.setProperty('--sx','0')});
+function glint(){if(RM)return;panel.classList.remove('glint');void panel.offsetWidth;panel.classList.add('glint')}
+panel.querySelector('.sheen').addEventListener('animationend',()=>panel.classList.remove('glint'));
+
+/* ---------- notes ---------- */
+function seed(){const now=Date.now();return[
+ {id:'n1',updated:now,html:`<h1>Quiet power of margins</h1><div>Reading notes · essay on low-friction capture</div><blockquote>The note you take in the moment is worth ten you promise to write later.<cite>margins.example/essays/quiet-power</cite></blockquote><h2>Takeaways</h2><ul><li>Capture must cost &lt; 2 seconds</li><li>Plain files outlive apps</li></ul><div class="todo"><span class="cb" contenteditable="false"></span><span class="tx">Try the ⌥Space flow for a week</span></div><div class="todo done"><span class="cb" contenteditable="false"></span><span class="tx">Read the full essay</span></div><div><br></div>`},
+ {id:'n2',updated:now-3600e3*5,html:`<h1>Ideas inbox</h1><ul><li>Edge line could pulse once on save</li><li>Quote blocks keep their source URL</li><li>Drawer remembers its height</li></ul><div><br></div>`},
+ {id:'n3',updated:now-86400e3*2,html:`<h1>Snippets</h1><pre>collectionBehavior = [.canJoinAllSpaces,\n  .fullScreenAuxiliary]</pre><a class="link" href="https://developer.apple.com/documentation/appkit/nspanel" contenteditable="false" target="_blank" rel="noopener"><span class="fav">D</span><span><b>NSPanel</b><small>developer.apple.com</small></span></a><div><br></div>`},
+ {id:'n4',updated:now-86400e3*4,html:`<h1>Reading list</h1><div class="todo"><span class="cb" contenteditable="false"></span><span class="tx">Designing Fluid Interfaces (WWDC18)</span></div><div class="todo done"><span class="cb" contenteditable="false"></span><span class="tx">TextKit 2 sample code</span></div><div><br></div>`}]}
+let notes=store.get('margin.notes.v2',null)||seed();
+let cur=notes[0].id, filter='all';
+const noteOf=id=>notes.find(n=>n.id===id);
+const parse=html=>{const d=document.createElement('div');d.innerHTML=html;return d};
+function titleOf(html){const d=parse(html);const f=[...d.children].find(c=>c.textContent.trim());return f?f.textContent.trim().slice(0,60):'Untitled'}
+function info(n){const d=parse(n.html);const kids=[...d.children];const fi=kids.findIndex(c=>c.textContent.trim());
+  const snip=kids.slice(fi+1).filter(c=>!c.matches('figure,a.link')).map(c=>c.matches('ul,ol')?[...c.children].map(li=>li.textContent.trim()).join(' · '):c.textContent.trim()).filter(Boolean).join(' · ').slice(0,140);
+  return{title:titleOf(n.html),snip,todo:d.querySelectorAll('.todo').length,done:d.querySelectorAll('.todo.done').length,media:d.querySelectorAll('figure').length,link:d.querySelectorAll('a.link').length,quote:d.querySelectorAll('blockquote').length,text:d.textContent.toLowerCase()}}
+function ago(t){const s=(Date.now()-t)/1e3;if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
+
+let staggered=false;
+function renderCards(stagger){const q=$('#q').value.trim().toLowerCase();
+  const items=notes.map(n=>[n,info(n)]).filter(([n,i])=>(!q||i.text.includes(q))&&(filter==='all'||i[filter]>0));
+  const newCard=`<button class="card new" data-new="1"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New note</button>`;
+  cardsEl.innerHTML=newCard+(items.map(([n,i])=>`<button class="card${n.id===cur?' cur':''}" data-id="${n.id}"><b>${esc(i.title)}</b><p>${esc(i.snip)||'&nbsp;'}</p><div class="m"><span>${ago(n.updated)}</span>${i.todo?`<span>☐ ${i.done}/${i.todo}</span>`:''}${i.media?`<span>▣ ${i.media}</span>`:''}${i.link?`<span>↗ ${i.link}</span>`:''}</div></button>`).join('')||'<div class="empty">No notes match.</div>');
+  $('#ncount').textContent=notes.length;
+  if(stagger&&!RM){cardsEl.classList.add('stagger');const cs=[...cardsEl.children];void cardsEl.offsetWidth;
+    requestAnimationFrame(()=>{cardsEl.classList.remove('stagger');cs.forEach((c,i)=>c.style.transitionDelay=(i*28)+'ms');setTimeout(()=>cs.forEach(c=>c.style.transitionDelay=''),700)})}}
+cardsEl.addEventListener('pointermove',e=>{const c=e.target.closest('.card');if(!c)return;const r=c.getBoundingClientRect();c.style.setProperty('--cx',(e.clientX-r.left)+'px');c.style.setProperty('--cy',(e.clientY-r.top)+'px')});
+cardsEl.addEventListener('click',e=>{const c=e.target.closest('.card');if(!c)return;if(c.dataset.new){newNote();return}if(c.dataset.id!==cur)open(c.dataset.id,true);setDrawer(false)});
+$('#q').oninput=()=>renderCards(false);
+$('#chips').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;filter=c.dataset.f;document.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===c));renderCards(false)};
+
+function open(id,anim){cur=id;const set=()=>{ed.innerHTML=noteOf(id).html;ed.scrollTop=0;syncTitle();renderCards(false)};
+  if(anim&&!RM){ed.classList.add('swap');requestAnimationFrame(()=>{set();requestAnimationFrame(()=>ed.classList.remove('swap'))})}else set()}
+function syncTitle(){const t=titleOf(ed.innerHTML);$('#htitle').textContent=t}
+let st;function save(){const n=noteOf(cur);if(!n)return;n.html=ed.innerHTML;n.updated=Date.now();notes=[n,...notes.filter(x=>x!==n)];syncTitle();
+ const dot=$('#status i');dot.className='busy';$('#status').lastChild.textContent='Saving…';clearTimeout(st);
+ st=setTimeout(()=>{const ok=store.set('margin.notes.v2',notes);dot.className=ok?'ping':'busy';$('#status').lastChild.textContent=ok?'Saved · local':'Too big for demo storage';if(drawer.offsetHeight)renderCards(false);else $('#ncount').textContent=notes.length},300)}
+function newNote(){const n={id:'n'+Date.now(),updated:Date.now(),html:'<h1><br></h1>'};notes.unshift(n);setDrawer(false);open(n.id,true);setTimeout(()=>{ed.focus();caret(ed.firstChild,false)},30);store.set('margin.notes.v2',notes);$('#ncount').textContent=notes.length;toast('New note · ⌥N')}
+$('#bNew').onclick=newNote;
+
+/* ---------- drawer: pushes content up, drag + flick ---------- */
+const dmax=()=>Math.round(Math.min(330,Math.max(200,panel.clientHeight*.56)));
+function syncDmax(){drawer.querySelector('.dwin').style.setProperty('--dmax',dmax()+'px')}
+let lastEdH=0;
+const ro=new ResizeObserver(()=>{const hNow=ed.clientHeight;if(lastEdH&&hNow!==lastEdH){ed.scrollTop+=lastEdH-hNow}lastEdH=hNow});ro.observe(ed);
+function setDrawer(open){if(panel.classList.contains('min'))open=false;syncDmax();const was=panel.classList.contains('dopen');
+  drawer.style.height=(open?dmax():0)+'px';panel.classList.toggle('dopen',open);$('#bNotes').setAttribute('aria-expanded',open);
+  if(open&&!was){renderCards(!staggered);staggered=true}}
+$('#bNotes').onclick=()=>setDrawer(!panel.classList.contains('dopen'));
+function rubber(over,dim,c=.55){return (over*dim*c)/(dim+c*Math.abs(over))}
+function dragDrawer(e){if(panel.classList.contains('min'))return;syncDmax();const max=dmax(),y0=e.clientY,h0=drawer.offsetHeight;let hist=[{y:e.clientY,t:performance.now()}],moved=false;
+  const target=e.currentTarget;try{target.setPointerCapture(e.pointerId)}catch(_){}
+  const mv=ev=>{const dy=y0-ev.clientY;if(!moved&&Math.abs(dy)<6)return;if(!moved){moved=true;drawer.classList.add('dragging');if(!h0){renderCards(!staggered);staggered=true}}
+    let hh=h0+dy;if(hh>max)hh=max+rubber(hh-max,max);if(hh<0)hh=-rubber(-hh,max)*.2;drawer.style.height=Math.max(0,hh)+'px';
+    hist.push({y:ev.clientY,t:performance.now()});if(hist.length>6)hist.shift()};
+  const up=()=>{target.removeEventListener('pointermove',mv);target.removeEventListener('pointerup',up);target.removeEventListener('pointercancel',up);
+    if(!moved)return;drawer.classList.remove('dragging');const a=hist[0],b=hist[hist.length-1];const v=b.t>a.t?(a.y-b.y)/(b.t-a.t)*1000:0; // px/s, + = upward
+    const proj=drawer.offsetHeight+(v/1000)*.99/(1-.99);setDrawer(proj>max/2);suppressClick=true;setTimeout(()=>suppressClick=false,0)};
+  target.addEventListener('pointermove',mv);target.addEventListener('pointerup',up);target.addEventListener('pointercancel',up)}
+let suppressClick=false;
+$('#grab').addEventListener('pointerdown',dragDrawer);
+$('#grab').addEventListener('click',()=>{if(!suppressClick)setDrawer(false)});
+$('#foot').addEventListener('pointerdown',e=>{if(e.target.closest('button,input'))return;dragDrawer(e)});
+
+/* ---------- caret / blocks ---------- */
+function caret(el,end=true){if(!el)return;const r=document.createRange();r.selectNodeContents(el);r.collapse(!end);const s=getSelection();s.removeAllRanges();s.addRange(r)}
+function block(){const s=getSelection();if(!s.rangeCount)return null;let n=s.anchorNode;if(!ed.contains(n))return null;if(n===ed){let d=ed.children[Math.max(0,s.anchorOffset-1)];if(!d||d.nodeName==='FIGURE'){d=document.createElement('div');d.innerHTML='<br>';ed.appendChild(d)}caret(d);return d}
+ while(n&&n.parentNode!==ed){if(n.nodeName==='LI')return n;n=n.parentNode}return n}
+function textBeforeCaret(b){const s=getSelection();const r=document.createRange();r.setStart(b,0);r.setEnd(s.anchorNode,s.anchorOffset);return r.toString().replace(/ /g,' ')}
+function make(type,text){const t=text?esc(text):'<br>';let el,focus;
+ switch(type){
+  case'h1':case'h2':case'h3':el=document.createElement(type);el.innerHTML=t;focus=el;break;
+  case'ul':case'ol':el=document.createElement(type);el.innerHTML='<li>'+t+'</li>';focus=el.firstChild;break;
+  case'todo':el=document.createElement('div');el.className='todo';el.innerHTML='<span class="cb" contenteditable="false"></span><span class="tx">'+t+'</span>';focus=el.lastChild;break;
+  case'quote':el=document.createElement('blockquote');el.innerHTML=t;focus=el;break;
+  case'code':el=document.createElement('pre');el.innerHTML=t;focus=el;break;
+  case'hr':el=document.createElement('hr');break;
+  default:el=document.createElement('div');el.innerHTML=t;focus=el}
+ return{el,focus}}
+function ensureAfter(el){let n=el.nextElementSibling;if(!n||n.nodeName==='FIGURE'||n.nodeName==='HR'||n.classList.contains('link')){n=document.createElement('div');n.innerHTML='<br>';el.after(n)}return n}
+function convert(b,type,text){const {el,focus}=make(type,text);
+ if(b.nodeName==='LI'){const L=b.parentNode;if(L.children.length===1)L.replaceWith(el);else{L.after(el);b.remove()}}else b.replaceWith(el);
+ if(type==='hr'){caret(ensureAfter(el));}else caret(focus,!!text);save()}
+function insertNode(node){let b=block();if(b&&b.nodeName==='LI')b=b.parentNode;
+ if(b&&!b.textContent.trim()&&!b.querySelector('img,video')&&b.nodeName!=='FIGURE')b.replaceWith(node);else if(b)b.after(node);else ed.appendChild(node);
+ const n=ensureAfter(node);caret(n);node.scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'});save()}
+
+const RULES=[['###','h3'],['##','h2'],['#','h1'],['-','ul'],['*','ul'],['1.','ol'],['[]','todo'],['[ ]','todo'],['>','quote'],['```','code'],['---','hr']];
+ed.addEventListener('input',e=>{
+ if(e.inputType==='insertText'&&e.data===' '){const b=block();if(b&&b.nodeName!=='LI'&&b.nodeName!=='PRE'&&!(b.classList&&b.classList.contains('todo'))){const before=textBeforeCaret(b);const r=RULES.find(([p])=>before===p+' ');if(r){const rest=b.textContent.replace(/ /g,' ').slice(before.length);convert(b,r[1],rest);return}}}
+ if(e.inputType==='insertText'&&e.data==='-'){const b=block();if(b&&textBeforeCaret(b)==='---'&&b.textContent.trim()==='---'){convert(b,'hr','');return}}
+ if(e.inputType==='insertText'&&e.data==='`'){const b=block();if(b&&b.nodeName!=='PRE'&&b.textContent.trim()==='```'){convert(b,'code','');return}}
+ slashCheck(e);save()});
+
+ed.addEventListener('keydown',e=>{
+ if(menu.classList.contains('on')){if(['ArrowDown','ArrowUp','Enter','Escape','Tab'].includes(e.key)){e.preventDefault();if(e.key==='Escape')closeMenu();else if(e.key==='Enter'||e.key==='Tab')pick(sel);else{sel=(sel+(e.key==='ArrowDown'?1:-1)+shown.length)%shown.length;drawMenu()}return}}
+ if(e.key==='Enter'&&!e.shiftKey){const b=block();if(!b)return;
+  if(b.classList&&b.classList.contains('todo')){e.preventDefault();if(!b.textContent.trim()){convert(b,'p','');return}const {el,focus}=make('todo','');b.after(el);caret(focus);save();return}
+  if(b.nodeName==='PRE'){e.preventDefault();if(b.textContent.endsWith('\n')){b.textContent=b.textContent.replace(/\n+$/,'');caret(ensureAfter(b));save();return}document.execCommand('insertText',false,'\n');return}
+  if(/^H[1-3]$|BLOCKQUOTE/.test(b.nodeName)){e.preventDefault();const d=document.createElement('div');d.innerHTML='<br>';b.after(d);caret(d);save();return}}
+ if(e.key==='Backspace'){const b=block();if(!b||!b.classList)return;
+  if(b.nodeName!=='DIV'&&b.nodeName!=='LI'&&textBeforeCaret(b)===''){e.preventDefault();convert(b,'p',b.textContent)}
+  else if(b.classList.contains('todo')&&textBeforeCaret(b)===''){e.preventDefault();convert(b,'p',b.textContent)}}
+});
+ed.addEventListener('click',e=>{const cb=e.target.closest('.cb');if(cb){cb.parentNode.classList.toggle('done');save()}
+ const rm=e.target.closest('.rm');if(rm){rm.closest('figure').remove();save()}
+ const a=e.target.closest('a.link');if(a&&!e.metaKey){e.preventDefault();toast('⌘-click opens in Chrome')}else if(a){e.preventDefault();window.open(a.href,'_blank','noopener')}});
+
+/* ---------- slash menu ---------- */
+const ITEMS=[['Text','p','T',''],['Heading 1','h1','H1','#'],['Heading 2','h2','H2','##'],['Heading 3','h3','H3','###'],['Bullet list','ul','•','-'],['Numbered list','ol','1.','1.'],['To-do','todo','☐','[]'],['Quote','quote','❝','>'],['Code','code','{}','```'],['Divider','hr','—','---'],['Image or video','media','▣',''],['Screenshot','shot','⌗','⌃⌥S'],['Clip current tab','clip','↗','']];
+let shown=[],sel=0,slashB=null;
+function slashCheck(e){const b=block();
+ if(e.data==='/'&&b&&textBeforeCaret(b)==='/'){slashB=b;openMenu();return}
+ if(menu.classList.contains('on')){if(!b||b!==slashB||!textBeforeCaret(b).startsWith('/')){closeMenu();return}drawMenu()}}
+function openMenu(){sel=0;drawMenu();const r=getSelection().getRangeAt(0).getBoundingClientRect();const m=menu.parentNode.getBoundingClientRect();
+ let top=r.bottom-m.top+6,left=Math.max(8,Math.min(r.left-m.left,m.width-222));if(top+280>m.height){top=Math.max(8,r.top-m.top-286);menu.style.transformOrigin='bottom left'}else menu.style.transformOrigin='top left';
+ menu.style.top=top+'px';menu.style.left=left+'px';menu.classList.add('on')}
+function closeMenu(){menu.classList.remove('on');slashB=null}
+function drawMenu(){const q=slashB?textBeforeCaret(slashB).slice(1).toLowerCase():'';shown=ITEMS.filter(i=>i[0].toLowerCase().includes(q));if(!shown.length){closeMenu();return}sel=Math.min(sel,shown.length-1);
+ menu.innerHTML='<div class="mh">BLOCKS</div>'+shown.map((i,k)=>`<button data-k="${k}" class="${k===sel?'hi':''}"><span>${i[2]}</span>${i[0]}<small>${esc(i[3])}</small></button>`).join('')}
+menu.addEventListener('mousedown',e=>{e.preventDefault();const b=e.target.closest('button');if(b)pick(+b.dataset.k)});
+function pick(k){const it=shown[k];const b=slashB;closeMenu();if(!it||!b)return;const rest=b.textContent.replace(/ /g,' ').replace(/^\/\S*/,'');
+ if(['media','shot','clip'].includes(it[1])){b.innerHTML=rest.trim()?esc(rest):'<br>';caret(b);cmd(it[1])}else convert(b,it[1],rest.trim())}
+
+/* ---------- toolbar ---------- */
+let lastRange=null;
+document.addEventListener('selectionchange',()=>{const s=getSelection();if(s.rangeCount&&ed.contains(s.anchorNode))lastRange=s.getRangeAt(0).cloneRange()});
+function cmd(c){ed.focus();if(lastRange&&ed.contains(lastRange.startContainer)){const s=getSelection();s.removeAllRanges();s.addRange(lastRange)}else caret(ed.lastElementChild||ed);
+ let b=block();if(!b)return;
+ if(['h1','ul','todo','code'].includes(c)){const t=b.textContent.replace(/ /g,' ');const same=(c==='h1'&&b.nodeName==='H1')||(c==='code'&&b.nodeName==='PRE')||(c==='todo'&&b.classList.contains('todo'))||(c==='ul'&&b.nodeName==='LI');convert(b,same?'p':c,t);return}
+ if(c==='media'){$('#file').click();return}
+ if(c==='shot'){insertNode(fig(shot(),'Screenshot · '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · from Chrome','img'));toast('Region captured · ScreenCaptureKit');return}
+ if(c==='clip'){insertNode(linkCard(ARTICLE.url,ARTICLE.title));toast('Clipped the front Chrome tab');return}}
+document.querySelectorAll('.foot [data-cmd]').forEach(b=>b.addEventListener('mousedown',e=>{e.preventDefault();cmd(b.dataset.cmd)}));
+
+function fig(src,cap,kind){const f=document.createElement('figure');f.contentEditable='false';
+ f.innerHTML=(kind==='video'?`<video src="${src}" controls muted playsinline></video>`:`<img src="${src}" alt="">`)+`<figcaption>${esc(cap)}</figcaption><button class="rm" aria-label="Remove">×</button>`;return f}
+function linkCard(url,title){let d='';try{d=new URL(url).hostname.replace(/^www\./,'')}catch(e){d=url}
+ const a=document.createElement('a');a.className='link';a.href=url;a.contentEditable='false';a.target='_blank';a.rel='noopener';
+ a.innerHTML=`<span class="fav">${esc((d[0]||'?').toUpperCase())}</span><span><b>${esc(title||d)}</b><small>${esc(d)}</small></span>`;return a}
+function shot(){const c=document.createElement('canvas');c.width=720;c.height=300;const x=c.getContext('2d');
+ x.fillStyle='#0a0a0a';x.fillRect(0,0,720,300);x.fillStyle='#5f5f64';x.font='500 15px monospace';x.fillText('ESSAY · 9 MIN READ',36,48);
+ x.fillStyle='#ececee';x.font='500 34px Georgia,serif';x.fillText('The quiet power of writing',36,98);x.fillText('in the margins',36,140);
+ x.fillStyle='#2c2c2f';[180,206,232,258].forEach((y,i)=>x.fillRect(36,y,[620,580,640,420][i],10));
+ const g=x.createLinearGradient(0,0,720,300);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(1,'rgba(255,255,255,.2)');x.strokeStyle=g;x.lineWidth=3;x.strokeRect(1.5,1.5,717,297);return c.toDataURL('image/png')}
+function fmtSize(b){return b>1e6?(b/1e6).toFixed(1)+' MB':Math.max(1,Math.round(b/1e3))+' KB'}
+function addFile(f){const kind=f.type.startsWith('video/')?'video':f.type.startsWith('image/')?'img':null;
+ if(!kind){const s=document.createElement('div');s.className='file';s.contentEditable='false';s.textContent='📎 '+f.name+' · '+fmtSize(f.size);insertNode(s);return}
+ const cap=f.name+' · '+fmtSize(f.size)+' · copied to assets/';
+ if(kind==='img'&&f.size<1.5e6){const r=new FileReader();r.onload=()=>insertNode(fig(r.result,cap,'img'));r.readAsDataURL(f)}
+ else insertNode(fig(URL.createObjectURL(f),cap,kind))}
+$('#file').onchange=e=>{[...e.target.files].forEach(addFile);e.target.value=''};
+
+/* ---------- paste + drop ---------- */
+const isURL=s=>/^https?:\/\/\S+$/i.test(s.trim());
+ed.addEventListener('paste',e=>{const cd=e.clipboardData;if(!cd)return;const files=[...(cd.files||[])];
+ if(files.length){e.preventDefault();files.forEach(addFile);toast('Pasted '+files.length+' file(s)');return}
+ const t=cd.getData('text/plain');if(t&&isURL(t)){e.preventDefault();insertNode(linkCard(t.trim()));toast('Link card created');return}
+ if(t){e.preventDefault();document.execCommand('insertText',false,t)}});
+let dc=0;
+panel.addEventListener('dragenter',e=>{e.preventDefault();dc++;panel.classList.add('dragover')});
+panel.addEventListener('dragleave',()=>{if(--dc<=0){dc=0;panel.classList.remove('dragover')}});
+panel.addEventListener('dragover',e=>e.preventDefault());
+panel.addEventListener('drop',e=>{e.preventDefault();dc=0;panel.classList.remove('dragover');const dt=e.dataTransfer;
+ if(!ed.contains(getSelection().anchorNode)){caret(ed.lastElementChild||ed)}
+ if(dt.files&&dt.files.length){[...dt.files].forEach(addFile);toast('Embedded '+dt.files.length+' file(s)');return}
+ const u=dt.getData('text/uri-list'),t=dt.getData('text/plain');
+ if(u&&isURL(u.split('\n')[0])){insertNode(linkCard(u.split('\n')[0]));return}
+ if(t&&isURL(t)){insertNode(linkCard(t.trim()));return}
+ if(t){const q=document.createElement('blockquote');q.innerHTML=esc(t.trim())+`<cite>${ARTICLE.domain}/essays/quiet-power</cite>`;insertNode(q);toast('Quote saved with its source')}});
+
+/* ---------- placement: 4 edges + 4 corners ---------- */
+const ANCH=['tl','t','tr','r','br','b','bl','l'];
+const ANAME={tl:'TOP LEFT',t:'TOP',tr:'TOP RIGHT',r:'RIGHT',br:'BOTTOM RIGHT',b:'BOTTOM',bl:'BOTTOM LEFT',l:'LEFT'};
+let anchor=store.get('margin.anchor','r');if(!ANCH.includes(anchor))anchor='r';
+let size=store.get('margin.size',{w:440,h:600});
+const M=16,NM=6;
+const isMin=()=>panel.classList.contains('min');
+// visible frame = stage minus the Dock, like NSScreen.visibleFrame
+function vf(){const W=stage.clientWidth,H=stage.clientHeight;const d=$('#dock');return{W,H:H-(d?d.offsetHeight+18:0)}}
+function nubSize(a){return a.length===2?{w:18,h:18}:(a==='l'||a==='r')?{w:8,h:84}:{w:84,h:8}}
+function panelSize(){const f=vf();return{w:Math.min(size.w,f.W-2*M),h:Math.min(size.h,f.H-2*M)}}
+function at(a,w,h,m){const f=vf();return{x:a.includes('l')?m:a.includes('r')?f.W-w-m:(f.W-w)/2,y:a.includes('t')?m:a.includes('b')?f.H-h-m:(f.H-h)/2}}
+function frameFor(a,min){const s=min?nubSize(a):panelSize();const p=at(a,s.w,s.h,min?NM:M);return{x:p.x,y:p.y,w:s.w,h:s.h}}
+function layout(){const f=frameFor(anchor,isMin());Object.assign(panel.style,{left:f.x+'px',top:f.y+'px',width:f.w+'px',height:f.h+'px',right:'auto'});panel.dataset.anchor=anchor;
+  if(panel.classList.contains('dopen')){syncDmax();drawer.style.height=dmax()+'px'}}
+function nearest(cx,cy,min){let best=null,bd=1e9;for(const a of ANCH){const f=frameFor(a,min);const d=Math.hypot(f.x+f.w/2-cx,f.y+f.h/2-cy);if(d<bd){bd=d;best=a}}return best}
+
+/* ---------- the drag-to-place effect ---------- */
+const fx={el:$('#snapfx'),cv:$('#fxc'),ghost:$('#ghost'),slots:{},on:false,p:{x:0,y:0},o:{x:0,y:0},trail:[],near:null,raf:0,t0:0};
+ANCH.forEach((a,i)=>{const s=document.createElement('div');s.className='slot';s.style.transitionDelay=(i*24)+'ms';fx.el.appendChild(s);fx.slots[a]=s});
+fx.show=function(min){this.min=min;const f=vf(),dpr=Math.min(2,devicePixelRatio||1);this.cv.width=stage.clientWidth*dpr;this.cv.height=stage.clientHeight*dpr;this.ctx=this.cv.getContext('2d');this.ctx.setTransform(dpr,0,0,dpr,0,0);
+  ANCH.forEach(a=>{const r=frameFor(a,true);Object.assign(this.slots[a].style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});this.slots[a].dataset.a=a});
+  this.trail=[];this.on=true;this.t0=performance.now();this.el.classList.add('on');if(!this.raf)this.loop()};
+fx.update=function(px,py,ox,oy,near){this.p={x:px,y:py};this.o={x:ox,y:oy};this.trail.push({x:ox,y:oy,t:performance.now()});
+  this.el.style.setProperty('--px',px+'px');this.el.style.setProperty('--py',py+'px');
+  if(near!==this.near){if(this.near)this.slots[this.near].classList.remove('near');this.near=near;this.slots[near].classList.add('near');
+    const g=frameFor(near,false);Object.assign(this.ghost.style,{left:g.x+'px',top:g.y+'px',width:g.w+'px',height:g.h+'px'});this.ghost.firstChild.textContent=ANAME[near]}};
+fx.hide=function(a){this.on=false;this.el.classList.remove('on');if(this.near)this.slots[this.near].classList.remove('near');this.near=null;
+  const r=frameFor(a,isMin());const s=document.createElement('div');s.className='shock';s.style.left=(r.x+r.w/2)+'px';s.style.top=(r.y+r.h/2)+'px';stage.appendChild(s);s.addEventListener('animationend',()=>s.remove())};
+fx.loop=function(){const c=this.ctx,W=stage.clientWidth,H=stage.clientHeight,now=performance.now(),t=now-this.t0;
+  c.clearRect(0,0,W,H);
+  if(this.on||t<0){
+    // magnetic dot field: dots lean toward the pointer, brighten near it, and ripple outward
+    const g=26,px=this.p.x,py=this.p.y,R=300;
+    for(let y=g/2;y<H;y+=g)for(let x=g/2;x<W;x+=g){const dx=px-x,dy=py-y,d=Math.hypot(dx,dy);const f=Math.max(0,1-d/R),f2=f*f;
+      const wave=Math.max(0,Math.sin(d/26-t/80))*f;const a=.05+f2*.55+wave*.25;const rr=.7+f2*1.6+wave*.8;
+      c.fillStyle='rgba(255,255,255,'+a.toFixed(3)+')';c.beginPath();c.arc(x+dx*f2*.22,y+dy*f2*.22,rr,0,6.283);c.fill()}
+    // light trail behind the dragged object
+    this.trail=this.trail.filter(p=>now-p.t<260);
+    if(this.trail.length>1){c.lineCap='round';c.shadowColor='rgba(255,255,255,.9)';c.shadowBlur=18;
+      for(let i=1;i<this.trail.length;i++){const k=i/this.trail.length;c.strokeStyle='rgba(255,255,255,'+(k*.8).toFixed(3)+')';c.lineWidth=1+k*9;c.beginPath();c.moveTo(this.trail[i-1].x,this.trail[i-1].y);c.lineTo(this.trail[i].x,this.trail[i].y);c.stroke()}
+      c.shadowBlur=0}
+    // beam to the slot it will snap to
+    if(this.near){const r=frameFor(this.near,true),tx=r.x+r.w/2,ty=r.y+r.h/2;const gr=c.createLinearGradient(this.o.x,this.o.y,tx,ty);gr.addColorStop(0,'rgba(255,255,255,.7)');gr.addColorStop(1,'rgba(255,255,255,.05)');
+      c.strokeStyle=gr;c.lineWidth=1.2;c.setLineDash([3,6]);c.lineDashOffset=-t/20;c.beginPath();c.moveTo(this.o.x,this.o.y);c.lineTo(tx,ty);c.stroke();c.setLineDash([])}
+  }
+  if(this.on){this.raf=requestAnimationFrame(()=>this.loop())}else{this.raf=0;c.clearRect(0,0,W,H)}};
+
+/* ---------- dragging: the minimised line (as a light orb) or the whole panel ---------- */
+function startDrag(e,kind){
+  const s=stage.getBoundingClientRect(),p=panel.getBoundingClientRect();const min=kind==='nub';
+  const ox=min?0:e.clientX-p.left,oy=min?0:e.clientY-p.top;let hist=[],started=false;const src=e.currentTarget;try{src.setPointerCapture(e.pointerId)}catch(_){}
+  const begin=()=>{started=true;panel.classList.add('moving');if(min)panel.classList.add('orb');closeMenu();$('#pop').classList.remove('on');fx.show(min)};
+  const mv=ev=>{const x=ev.clientX-s.left,y=ev.clientY-s.top;hist.push({x,y,t:performance.now()});if(hist.length>6)hist.shift();
+    if(!started){if(Math.hypot(ev.clientX-e.clientX,ev.clientY-e.clientY)<5)return;begin()}
+    let cx,cy,w,h;
+    if(min){w=h=28;cx=x;cy=y;const n=nearest(x,y,true),r=frameFor(n,true),tx=r.x+r.w/2,ty=r.y+r.h/2,d=Math.hypot(tx-x,ty-y);if(d<110){const k=(1-d/110)*.55;cx=x+(tx-x)*k;cy=y+(ty-y)*k}
+      panel.style.width=w+'px';panel.style.height=h+'px';panel.style.left=(cx-w/2)+'px';panel.style.top=(cy-h/2)+'px';
+      // squash & stretch along the direction of travel
+      const a=hist[0],b=hist[hist.length-1],dt=Math.max(16,b.t-a.t),vx=(b.x-a.x)/dt,vy=(b.y-a.y)/dt,sp=Math.min(1.4,Math.hypot(vx,vy)),ang=Math.atan2(vy,vx);
+      panel.style.transform=`rotate(${ang}rad) scale(${1+sp*.6},${1-sp*.25}) rotate(${-ang}rad)`;
+      fx.update(x,y,cx,cy,nearest(cx,cy,true))}
+    else{const f=panelSize();cx=x-ox+f.w/2;cy=y-oy+f.h/2;panel.style.left=(x-ox)+'px';panel.style.top=(y-oy)+'px';fx.update(x,y,x,y,nearest(cx,cy,false))}};
+  const up=ev=>{src.removeEventListener('pointermove',mv);src.removeEventListener('pointerup',up);src.removeEventListener('pointercancel',up);
+    if(!started){if(min)setMin(false);return}
+    // project the release velocity forward, then snap to the nearest of the 8 spots
+    const a=hist[0],b=hist[hist.length-1],dt=Math.max(16,b.t-a.t),vx=(b.x-a.x)/dt*1000,vy=(b.y-a.y)/dt*1000,proj=v=>(v/1000)*.99/(1-.99);
+    const pr=panel.getBoundingClientRect();const cx=pr.left-s.left+pr.width/2+proj(vx)*.5,cy=pr.top-s.top+pr.height/2+proj(vy)*.5;
+    anchor=fx.near||nearest(cx,cy,min);const pj=nearest(cx,cy,min);if(Math.hypot(vx,vy)>900)anchor=pj;store.set('margin.anchor',anchor);
+    panel.style.transform='';panel.classList.remove('orb');requestAnimationFrame(()=>{panel.classList.remove('moving');layout();fx.hide(anchor);glint()});
+    toast((min?'Docked ':'Placed ')+ANAME[anchor].toLowerCase())};
+  src.addEventListener('pointermove',mv);src.addEventListener('pointerup',up);src.addEventListener('pointercancel',up)}
+
+$('#head').addEventListener('pointerdown',e=>{if(e.target.closest('button,input')||isMin())return;startDrag(e,'panel')});
+panel.addEventListener('pointerdown',e=>{if(!isMin())return;e.preventDefault();startDrag(e,'nub')});
+
+/* ---------- resize from the corner that faces the screen centre ---------- */
+$('#grip').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const g=$('#grip');g.setPointerCapture(e.pointerId);panel.classList.add('resizing');
+ const x0=e.clientX,y0=e.clientY,w0=panel.offsetWidth,h0=panel.offsetHeight,f=vf();
+ const kx=anchor.includes('l')?1:anchor.includes('r')?-1:2,ky=anchor.includes('t')?1:anchor.includes('b')?-1:2;
+ const mv=ev=>{size={w:Math.min(Math.max(340,w0+kx*(ev.clientX-x0)),f.W-2*M),h:Math.min(Math.max(380,h0+ky*(ev.clientY-y0)),f.H-2*M)};layout()};
+ const up=()=>{g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);panel.classList.remove('resizing');store.set('margin.size',size)};g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up)});
+
+/* ---------- minimise ---------- */
+function setMin(on){if(on===isMin())return;
+ if(on){setDrawer(false);$('#pop').classList.remove('on');closeMenu()}
+ panel.classList.toggle('min',on);layout();glint();
+ if(!on)setTimeout(()=>ed.focus({preventScroll:true}),520)}
+$('#bMin').onclick=e=>{e.stopPropagation();setMin(true);toast('Minimised · click or drag the line')};
+panel.addEventListener('pointerenter',()=>{if(isMin())glint()});
+$('#dockM').onclick=()=>{const b=$('#dockM');b.classList.remove('bounce');void b.offsetWidth;b.classList.add('bounce');setMin(!isMin())};
+$('#bPin').onclick=function(){const on=!this.classList.contains('on');this.classList.toggle('on',on);this.setAttribute('aria-pressed',on);toast(on?'Floats above all Spaces + full screen':'Normal window level')};
+$('#bOp').onclick=e=>{e.stopPropagation();$('#pop').classList.toggle('on')};
+$('#op').oninput=e=>panel.style.setProperty('--op',e.target.value/100);
+$('#ct').onchange=e=>toast(e.target.checked?'Clicks pass through below 60% opacity':'Click-through off');
+document.addEventListener('click',e=>{if(!e.target.closest('#pop,#bOp'))$('#pop').classList.remove('on');if(!e.target.closest('#tips,#bTips'))$('#tips').classList.remove('on')});
+$('#bTips').onclick=e=>{e.stopPropagation();$('#tips').classList.toggle('on')};
+
+/* ---------- keyboard: ⌃⌥ + arrows walks the 8 spots ---------- */
+const GRID={tl:[0,0],t:[1,0],tr:[2,0],l:[0,1],r:[2,1],bl:[0,2],b:[1,2],br:[2,2]};
+function nudge(dx,dy){let [x,y]=GRID[anchor];x=Math.max(0,Math.min(2,x+dx));y=Math.max(0,Math.min(2,y+dy));if(x===1&&y===1){x+=dx;y+=dy}
+ const a=Object.keys(GRID).find(k=>GRID[k][0]===x&&GRID[k][1]===y);if(a&&a!==anchor){anchor=a;store.set('margin.anchor',a);layout();glint()}}
+addEventListener('keydown',e=>{if(!$('#v-mock').classList.contains('on'))return;
+ if(e.key==='Escape'&&panel.classList.contains('dopen')){setDrawer(false);return}
+ if(!e.altKey)return;
+ if(e.ctrlKey&&e.key.startsWith('Arrow')){e.preventDefault();nudge(e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0);return}
+ if(e.code==='Space'){e.preventDefault();setMin(!isMin())}
+ else if(e.code==='KeyN'){e.preventDefault();setMin(false);newNote()}
+ else if(e.code==='ArrowUp'||e.code==='Backslash'){e.preventDefault();setMin(false);setDrawer(!panel.classList.contains('dopen'))}
+ else if(e.ctrlKey&&e.code==='KeyS'){e.preventDefault();setMin(false);cmd('shot')}});
+addEventListener('resize',()=>{panel.classList.add('resizing');layout();requestAnimationFrame(()=>panel.classList.remove('resizing'))});
+
+open(cur,false);renderCards(false);
+panel.classList.add('resizing');layout();
+requestAnimationFrame(()=>requestAnimationFrame(()=>{panel.classList.remove('resizing','boot');setTimeout(glint,380)}));
+})();
+</script>
+</body>
+</html>
