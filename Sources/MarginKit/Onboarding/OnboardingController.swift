@@ -13,6 +13,8 @@ public final class OnboardingController {
     /// Called once the tour has ended (finished or skipped) and the normal UI is back.
     public var onFinish: (() -> Void)?
     public private(set) var isActive = false
+    /// True from start until the normal UI is fully back (includes the closing fade).
+    public var isBusy: Bool { isActive || view != nil }
 
     private let panel: PanelController
     private let mainView: NSView
@@ -30,13 +32,19 @@ public final class OnboardingController {
         self.mainView = mainView
     }
 
-    public static var hasRun: Bool { UserDefaults.standard.bool(forKey: doneKey) }
+    /// The tour has run, or this Mac already used Margin before the tour existed
+    /// (a saved note or panel position): those people skip it.
+    public static var hasRun: Bool {
+        let d = UserDefaults.standard
+        return d.bool(forKey: doneKey) || d.string(forKey: "margin.current") != nil || d.string(forKey: "margin.anchor") != nil
+    }
 
     // MARK: Start / finish
 
     public func start() {
-        guard !isActive, let glass = panel.glass else { return }
+        guard !isBusy, let glass = panel.glass else { return }
         isActive = true
+        panel.panel.makeFirstResponder(nil)   // nothing types into the hidden editor meanwhile
         step = 0
         sawFold = false
         expandSoundPlayed = false
@@ -45,6 +53,7 @@ public final class OnboardingController {
 
         savedSize = panel.expandedSize
         panel.expandedSize = Self.tourSize
+        panel.sizeLocked = true
 
         let v = OnboardingView(frame: glass.contentView.bounds)
         v.onPrimary = { [weak self] in self?.primary() }
@@ -74,26 +83,37 @@ public final class OnboardingController {
         }
     }
 
+    /// Ends the tour now (as if skipped) and runs `then` once the normal UI is back.
+    public func endNow(then: @escaping () -> Void) {
+        guard isActive else { then(); return }
+        afterFinish = then
+        finish(skipped: true)
+    }
+    private var afterFinish: (() -> Void)?
+
     private func finish(skipped: Bool) {
         guard isActive else { return }
         isActive = false
         timers.forEach { $0.invalidate() }
         timers = []
         UserDefaults.standard.set(true, forKey: Self.doneKey)
-        if !skipped, step != 5 { Sounds.play(.done) }
 
         veil?.hide()
         veil = nil
         let v = view
-        view = nil
         let restore = { [self] in
             v?.removeFromSuperview()
+            view = nil
             mainView.isHidden = false
             mainView.alphaValue = 1
             panel.expandedSize = savedSize
+            panel.sizeLocked = false
             if panel.isMinimised { panel.setMinimised(false) }
             panel.setAnchor(panel.anchor)   // back to the user's size at the chosen spot
             onFinish?()
+            let next = afterFinish
+            afterFinish = nil
+            next?()
         }
         if Theme.reduceMotion || v == nil {
             restore()
@@ -220,11 +240,15 @@ public final class OnboardingController {
     }
 }
 
-/// Dims the screen behind the panel during the tour. Click-through, on every Space.
+/// Dims the screen behind the panel during the tour. Click-through, on every Space. A
+/// non-activating panel, like Margin's own: an ordinary window cannot appear over another app's
+/// full-screen Space.
 @MainActor
-final class VeilWindow: NSWindow {
+final class VeilWindow: NSPanel {
     init(screen: NSScreen, below level: NSWindow.Level) {
-        super.init(contentRect: screen.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        super.init(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        hidesOnDeactivate = false
+        becomesKeyOnlyIfNeeded = true
         self.level = NSWindow.Level(rawValue: level.rawValue - 1)
         isOpaque = false
         backgroundColor = .black
@@ -235,6 +259,9 @@ final class VeilWindow: NSWindow {
         alphaValue = 0
         setFrame(screen.frame, display: false)
     }
+
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 
     func show(alpha: CGFloat) {
         orderFrontRegardless()
@@ -254,7 +281,8 @@ final class VeilWindow: NSWindow {
         }, completionHandler: { completion?() })
     }
 
+    /// Holds itself until the fade ends (nothing else keeps the window alive by then).
     func hide() {
-        fade(to: 0) { [weak self] in MainActor.assumeIsolated { self?.orderOut(nil) } }
+        fade(to: 0) { MainActor.assumeIsolated { self.orderOut(nil) } }
     }
 }

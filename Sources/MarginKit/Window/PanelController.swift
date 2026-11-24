@@ -36,9 +36,14 @@ public final class PanelController: NSObject, NSWindowDelegate {
     /// Set while the tour holds the panel in the middle of the screen; any anchor or minimise
     /// change ends it.
     private var centredSize: NSSize?
-    /// True while the app animates the frame itself. AppKit reports animated frame changes as a
-    /// live resize; those must not be saved as the user's size or re-snapped.
-    private var morphing = false
+    /// How many app-driven frame animations are in flight. AppKit reports animated frame changes
+    /// as a live resize; those must not be saved as the user's size or re-snapped. A counter, not a
+    /// flag: one morph can supersede another, and the first one's completion must not clear it.
+    private var morphs = 0
+    /// While set, a live resize is never saved as the user's size (the tour uses its own size).
+    public var sizeLocked = false
+    /// True during the tour's arrival (line, then open). Anchor and minimise requests wait.
+    public private(set) var isArriving = false
 
     public init(contentView: NSView) {
         let d = UserDefaults.standard
@@ -96,7 +101,7 @@ public final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - Minimise morph
 
     public func setMinimised(_ minimised: Bool, animated: Bool = true) {
-        guard minimised != isMinimised else { return }
+        guard minimised != isMinimised, !isArriving else { return }
         centredSize = nil
         isMinimised = minimised
         stateGeneration += 1
@@ -189,6 +194,7 @@ public final class PanelController: NSObject, NSWindowDelegate {
         isMinimised = false
         removeNubHit()
         centredSize = size
+        isArriving = true
         let v = visibleFrame
         let target = centredFrame(size)
         let line = NSRect(x: (v.midX - Theme.nubThin / 2).rounded(), y: (v.midY - Theme.nubLong / 2).rounded(),
@@ -203,10 +209,11 @@ public final class PanelController: NSObject, NSWindowDelegate {
         panel.orderFrontRegardless()
 
         let open = { [self] in
-            guard gen == stateGeneration else { return }
+            guard gen == stateGeneration else { isArriving = false; return }
             glass?.isMinimised = false
             glass?.anchor = anchor
             let landed = { [self] in
+                isArriving = false
                 guard gen == stateGeneration else { return }
                 applyStyle(minimised: false)
                 fillContent()
@@ -231,6 +238,7 @@ public final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - Anchors
 
     public func setAnchor(_ anchor: Anchor, animated: Bool = true) {
+        guard !isArriving else { return }
         centredSize = nil
         self.anchor = anchor
         UserDefaults.standard.set(anchor.rawValue, forKey: "margin.anchor")
@@ -315,7 +323,7 @@ public final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     public func windowDidEndLiveResize(_ notification: Notification) {
-        guard !isMinimised, !morphing, centredSize == nil else { return }
+        guard !isMinimised, morphs == 0, centredSize == nil, !sizeLocked else { return }
         expandedSize = panel.frame.size
         let d = UserDefaults.standard
         d.set(Double(expandedSize.width), forKey: "margin.width")
@@ -345,7 +353,7 @@ public final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - Helpers
 
     private func morph(to frame: NSRect, completion: @escaping () -> Void) {
-        morphing = true
+        morphs += 1
         NSAnimationContext.runAnimationGroup({ [panel] ctx in
             ctx.duration = Theme.morphDuration
             ctx.timingFunction = Theme.spring
@@ -355,7 +363,7 @@ public final class PanelController: NSObject, NSWindowDelegate {
             MainActor.assumeIsolated {
                 completion()
                 // Cleared a turn later: the end-of-live-resize callback can arrive after completion.
-                DispatchQueue.main.async { self?.morphing = false }
+                DispatchQueue.main.async { if let self { self.morphs = max(0, self.morphs - 1) } }
             }
         })
     }

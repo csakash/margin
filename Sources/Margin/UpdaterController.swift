@@ -69,8 +69,10 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
             d.removeObject(forKey: Self.pendingKey)   // unreadable: never show it
             return
         }
-        guard pending.version == currentVersion else { return }   // not installed (yet)
         d.removeObject(forKey: Self.pendingKey)
+        // Not this version (not installed, or something newer arrived another way): forget it.
+        // If the download is still waiting, Sparkle reports it ready again and it is stored again.
+        guard pending.version == currentVersion else { return }
         set(.installed(pending.info))
         Sounds.play(.installed)
     }

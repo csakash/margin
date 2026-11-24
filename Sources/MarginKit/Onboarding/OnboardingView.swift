@@ -178,7 +178,6 @@ final class OnboardingView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         // Wrapping text and boxes take the full column, so lines break at its edge, not earlier.
         for v in views where v !== eyebrow { v.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
-        if let box = tryBox { box.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
 
         stepStack.removeFromSuperview()
         stepStack = stack

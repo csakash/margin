@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // MARK: Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Read before anything below saves a note or a position, which would count as "used before".
+        let firstRun = !OnboardingController.hasRun || Override.value("MARGIN_ONBOARDING") == "1"
         buildMainMenu()
         // MARGIN_NOTES_DIR lets tests and demos use a scratch folder instead of ~/Documents/Margin.
         let folder = Override.value("MARGIN_NOTES_DIR").map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -57,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         tour = OnboardingController(panel: panel, mainView: main)
         tour.onFinish = { [weak self] in self?.editor.focus() }
         dragPlacement.onPlaced = { [weak self] _ in self?.tour.didPlace() }
-        if !OnboardingController.hasRun || Override.value("MARGIN_ONBOARDING") == "1" {
+        if firstRun {
             tour.start()          // first launch: the welcome tour opens the panel itself
         } else {
             panel.show()
@@ -96,6 +98,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     private func newNote() {
+        // ⌥N, ⌘N or the menu during the tour: end the tour first, then make the note.
+        if tour?.isBusy == true {
+            if tour.isActive { tour.endNow { [weak self] in self?.newNote() } }
+            return
+        }
         if panel.isMinimised { panel.setMinimised(false) }
         let id = store.create(initialText: "# ")
         drawer.setOpen(false)
@@ -369,7 +376,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.state = Sounds.isEnabled ? .on : .off
             return true
         case #selector(showTour):
-            return !tour.isActive
+            return !tour.isBusy
         default:
             return true
         }
