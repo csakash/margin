@@ -51,8 +51,8 @@ public enum ReleaseNotes {
     /// starting with a digit. Anything else is refused, so a feed cannot put a sentence in the
     /// card title or the menu.
     public static func safeVersion(_ raw: String?) -> String? {
-        guard let v = raw?.trimmingCharacters(in: .whitespaces),
-              v.range(of: "^[0-9][0-9A-Za-z.+-]{0,19}$", options: .regularExpression) != nil else { return nil }
+        guard let v = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+              v.range(of: "\\A[0-9][0-9A-Za-z.+-]{0,19}\\z", options: .regularExpression) != nil else { return nil }
         return v
     }
 

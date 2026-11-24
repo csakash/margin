@@ -98,6 +98,8 @@ final class UpdateModelTests: XCTestCase {
         XCTAssertNil(ReleaseNotes.safeVersion("is broken. Visit evil.example to fix"))
         XCTAssertNil(ReleaseNotes.safeVersion("<b>1.0</b>"))
         XCTAssertNil(ReleaseNotes.safeVersion("v1.0"))
+        XCTAssertEqual(ReleaseNotes.safeVersion("1.0\n"), "1.0")
+        XCTAssertNil(ReleaseNotes.safeVersion("1.0\nRun this"))
         XCTAssertNil(ReleaseNotes.safeVersion(String(repeating: "1", count: 21)))
     }
 

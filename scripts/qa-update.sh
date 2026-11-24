@@ -30,13 +30,14 @@ BIN=".build/artifacts/sparkle/Sparkle/bin"
 
 # Stop what an earlier run left behind, matched by command line (a pid file can outlive its process).
 stop_previous() {
-  pkill -f "http.server $PORT --bind 127.0.0.1 --directory $QA/feed" 2>/dev/null || true
-  pkill -f "$PWD/$QA/Margin.app/Contents/MacOS/Margin" 2>/dev/null || true
+  pkill -f -- "--directory $QA/feed" 2>/dev/null || true
+  pkill -f "$QA/Margin.app/Contents/MacOS/Margin" 2>/dev/null || true
 }
 
 if [[ "$MODE" == "--check-only" ]]; then
   # The normal configuration (real bundle id, real version, no QA switches), built outside dist/.
   rm -rf "$OUT"; mkdir -p "$OUT"
+  touch "$QA/check-started"
   scripts/release.sh
   APP="$OUT/Margin.app"; V=$(plist CFBundleShortVersionString)
   [[ "$(plist CFBundleIdentifier)" == "app.margin.notes" ]] || fail "bundle id is $(plist CFBundleIdentifier)"
@@ -64,8 +65,9 @@ if [[ "$MODE" == "--check-only" ]]; then
     REFUSAL=$(env -u ALLOW_QA_RELEASE -u OUT_DIR GUARD_ONLY=1 "$v=x" scripts/release.sh 2>&1 || true)
     grep -q "✗ $v is set in the environment" <<<"$REFUSAL" || fail "release.sh did not refuse $v"
   done
-  env -u ALLOW_QA_RELEASE -u OUT_DIR GUARD_ONLY=1 scripts/release.sh | grep -q "guard passed" || fail "release.sh refused a clean environment"
-  [[ ! -e dist ]] || [[ -z "$(find dist -newer "$OUT/appcast.xml" 2>/dev/null)" ]] || fail "the check wrote into dist/"
+  CLEAN=$(env -u ALLOW_QA_RELEASE -u OUT_DIR GUARD_ONLY=1 scripts/release.sh 2>&1 || true)
+  grep -q "guard passed" <<<"$CLEAN" || fail "release.sh refused a clean environment"
+  [[ ! -e dist ]] || [[ -z "$(find dist -newer "$QA/check-started" 2>/dev/null)" ]] || fail "the check wrote into dist/"
   echo "✓ bundle and feed checks passed for $V"
   exit 0
 fi

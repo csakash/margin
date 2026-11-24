@@ -1,7 +1,7 @@
 #!/bin/bash
 # Signed, notarized release: dist/Margin-<version>.dmg that opens on any Mac without warnings.
 #
-#   scripts/release.sh                 # sign + DMG (+ notarize if a notary profile exists)
+#   scripts/release.sh                 # sign, DMG, notarize, staple, then write the update feed entry
 #
 # Environment:
 #   SIGN_ID         codesigning identity (default: first "Developer ID Application" in the keychain)
@@ -13,8 +13,8 @@
 #   DOWNLOAD_BASE   where the DMG will be served from (default: https://margin.motiontic.com/download)
 #   NOTES_DIR       folder holding <version>.md release notes (default: releases)
 #
-# Also writes dist/appcast.xml: the update feed entry for this version, with the DMG's EdDSA
-# signature. Needs releases/<version>.md (1–5 lines starting with "- ") and the update-signing
+# Writes dist/appcast.xml last: the update feed entry for this version, with the DMG's EdDSA
+# signature. Without a notary profile it stops after the DMG, exits 1 and writes no feed entry. Needs releases/<version>.md (1–5 lines starting with "- ") and the update-signing
 # key in the login keychain. Publishing is a separate, manual step: see "Releasing" in README.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -32,7 +32,8 @@ if [[ "${ALLOW_QA_RELEASE:-}" != "1" ]]; then
     fi
   done
 fi
-if [[ "${GUARD_ONLY:-}" == "1" ]]; then echo "guard passed"; exit 0; fi   # used by qa-update.sh --check-only
+# Used by qa-update.sh --check-only. Non-zero on purpose: nothing was built, so it is never a "success".
+if [[ "${GUARD_ONLY:-}" == "1" ]]; then echo "guard passed; GUARD_ONLY is set, so nothing was built"; exit 3; fi
 OUT_DIR="${OUT_DIR:-dist}"
 DOWNLOAD_BASE="${DOWNLOAD_BASE:-https://margin.motiontic.com/download}"
 NOTES_DIR="${NOTES_DIR:-releases}"

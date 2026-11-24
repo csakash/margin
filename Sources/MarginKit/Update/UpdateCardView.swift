@@ -58,7 +58,7 @@ public final class UpdateCardView: NSView {
         bodyLabel.font = Theme.ui(12)
         bodyLabel.textColor = Theme.textSecondary
         bodyLabel.isSelectable = false
-        bodyLabel.maximumNumberOfLines = 10   // 5 notes of up to 2 wrapped lines; bounds the card's height
+        bodyLabel.maximumNumberOfLines = 10   // bounds the card's height; very long notes end in an ellipsis
         bodyLabel.cell?.truncatesLastVisibleLine = true
 
         let spacer = NSView()
