@@ -4,7 +4,7 @@ import MarginCore
 import MarginKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var store: NoteStore!
     private let editor = EditorController()
     private let drawer = DrawerController()
@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: PanelController!
     private var dragPlacement: DragPlacement!
     private let media = MediaHandler()
+    private let updates = UpdaterController()
     private var statusItem: NSStatusItem?
     private var currentID: NoteID?
     private var refreshScheduled = false
@@ -54,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.status.alphaValue = 0   // only shown while saving
         panel.show()
         editor.focus()
+        wireUpdates()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -306,6 +308,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func opacityChanged(_ s: NSSlider) { panel.panel.alphaValue = s.doubleValue }
     @objc private func shareToggled(_ b: NSButton) { panel.panel.sharingType = b.state == .on ? .none : .readOnly }
 
+    // MARK: Updates
+
+    private func wireUpdates() {
+        main.updateCard.onPrimary = { [weak self] in self?.updates.primaryAction() }
+        main.updateCard.onDismiss = { [weak self] in self?.updates.dismiss() }
+        updates.onChange = { [weak self] in
+            guard let self else { return }
+            // An update found in the background never expands or focuses the panel:
+            // the card is there when you open it, and the nub glows until then.
+            self.main.setUpdatePhase(self.updates.cardPhase, animated: !self.panel.isMinimised)
+            self.panel.hasPendingUpdate = self.updates.phase.showsNubDot
+        }
+        updates.start()
+    }
+
+    /// "Check for Updates…" doubles as "Restart to Update (x)" while one is waiting.
+    @objc private func checkForUpdatesAction() {
+        if updates.readyVersion != nil, updates.cardPhase != .idle {
+            updates.restartToUpdate()
+            return
+        }
+        if panel.isMinimised { panel.setMinimised(false) }   // you asked, so show the answer
+        updates.checkNow()
+    }
+
+    @objc private func toggleAutomaticUpdates() { updates.automaticChecks.toggle() }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        switch item.action {
+        case #selector(checkForUpdatesAction):
+            if let v = updates.readyVersion {
+                item.title = updates.cardPhase == .idle ? "Show Update (\(v))…" : "Restart to Update (\(v))"
+                return true
+            }
+            item.title = "Check for Updates…"
+            return updates.canCheck
+        case #selector(toggleAutomaticUpdates):
+            item.state = updates.automaticChecks ? .on : .off
+            return updates.isAvailable
+        default:
+            return true
+        }
+    }
+
     // MARK: Menus
 
     private func buildStatusItem() {
@@ -335,6 +381,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Open Notes Folder", action: #selector(openFolder), keyEquivalent: "").target = self
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Check for Updates Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "").target = self
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Margin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
         statusItem = item
@@ -352,6 +401,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem(); main.addItem(appItem)
         let app = NSMenu()
         app.addItem(withTitle: "About Margin", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "").target = self
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Margin", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(withTitle: "Quit Margin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")

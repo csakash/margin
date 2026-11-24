@@ -11,6 +11,8 @@ public final class MainView: NSView {
     public let status = NSTextField(labelWithString: "Saved · local")
     public let editor: EditorController
     public let drawer: DrawerController
+    /// In-panel update notice; zero height unless an update phase is showing.
+    public let updateCard = UpdateCardView()
     private let fade = GradientView()
 
     // Bottom-anchored scrolling: how far the visible bottom is from the document end.
@@ -22,7 +24,7 @@ public final class MainView: NSView {
         self.drawer = drawer
         super.init(frame: .zero)
         let scroll = editor.scrollView
-        for v in [scroll, fade, header, toolbar, status, drawer.view] as [NSView] {
+        for v in [scroll, fade, header, updateCard, toolbar, status, drawer.view] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -48,15 +50,20 @@ public final class MainView: NSView {
             scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: toolbar.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: updateCard.topAnchor),
+
+            // The update card sits between the note and the toolbar and pushes the note up.
+            updateCard.leadingAnchor.constraint(equalTo: leadingAnchor),
+            updateCard.trailingAnchor.constraint(equalTo: trailingAnchor),
+            updateCard.bottomAnchor.constraint(equalTo: toolbar.topAnchor),
 
             fade.leadingAnchor.constraint(equalTo: leadingAnchor),
             fade.trailingAnchor.constraint(equalTo: trailingAnchor),
-            fade.bottomAnchor.constraint(equalTo: toolbar.topAnchor),
+            fade.bottomAnchor.constraint(equalTo: updateCard.topAnchor),
             fade.heightAnchor.constraint(equalToConstant: 44),
 
             status.centerXAnchor.constraint(equalTo: centerXAnchor),
-            status.bottomAnchor.constraint(equalTo: toolbar.topAnchor, constant: -6),
+            status.bottomAnchor.constraint(equalTo: updateCard.topAnchor, constant: -6),
         ])
 
         // Keep the line you're writing in view while the drawer pushes the editor up.
@@ -70,6 +77,11 @@ public final class MainView: NSView {
     }
 
     public required init?(coder: NSCoder) { fatalError() }
+
+    /// Shows, changes or hides the update card.
+    public func setUpdatePhase(_ phase: UpdatePhase, animated: Bool) {
+        updateCard.apply(phase, animated: animated)
+    }
 
     @objc private func clipScrolled() {
         guard !adjusting, let doc = editor.scrollView.documentView else { return }
