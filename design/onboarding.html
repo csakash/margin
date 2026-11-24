@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Margin Onboarding</title>
+<link rel="icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050505; --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.13);
+  --tx:#f2f2f3; --tx2:#a1a1a6; --tx3:#636368;
+  --spring:cubic-bezier(.32,.72,0,1);   /* iOS sheet / Vaul curve */
+  --out:cubic-bezier(.23,1,.32,1);
+  --ui:'Geist',system-ui,-apple-system,sans-serif; --mono:'Geist Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 var(--ui);-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+kbd{font:500 11px var(--mono);background:rgba(255,255,255,.08);border:1px solid var(--line2);border-radius:6px;padding:2px 7px;color:var(--tx)}
+
+/* ---------- board nav ---------- */
+.nav{position:fixed;inset:0 0 auto 0;z-index:60;display:flex;align-items:center;gap:14px;height:52px;padding:0 20px;border-bottom:1px solid var(--line);background:rgba(5,5,5,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.01em;text-decoration:none;color:var(--tx)}
+.brand i{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.7)}
+.brand small{font:400 11px var(--mono);color:var(--tx3);letter-spacing:.04em}
+.seg{display:flex;gap:2px;margin-left:auto;background:rgba(255,255,255,.03);border:1px solid var(--line);padding:3px;border-radius:10px}
+.seg button{padding:5px 12px;border-radius:7px;color:var(--tx2);font-size:13px;transition:color .15s,background .15s}
+.seg button[aria-pressed=true]{background:rgba(255,255,255,.09);color:var(--tx);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.sound{display:flex;align-items:center;gap:6px;color:var(--tx2);font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line)}
+.sound svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
+.sound[aria-pressed=false]{color:var(--tx3)}
+
+/* ---------- sound picker ---------- */
+.pick{position:absolute;left:16px;top:16px;z-index:40;width:212px;padding:9px;border-radius:14px;background:rgba(12,12,13,.86);
+  border:1px solid var(--line);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 12px 32px rgba(0,0,0,.6)}
+.pick small{display:block;font:500 10px var(--mono);color:var(--tx3);letter-spacing:.06em;padding:2px 4px 7px}
+.pick .row{display:flex;align-items:center;gap:6px;border-radius:9px;transition:background .15s}
+.pick .row[aria-checked=true]{background:rgba(255,255,255,.08)}
+.pick .row:hover{background:rgba(255,255,255,.05)}
+.pick .row>button.sel{flex:1;text-align:left;padding:7px 8px;font-size:12.5px;color:var(--tx2);display:flex;flex-direction:column;gap:1px}
+.pick .row[aria-checked=true]>button.sel{color:var(--tx)}
+.pick .row>button.sel em{font-style:normal;font-size:11px;color:var(--tx3)}
+.pick .pv{width:28px;height:28px;margin-right:4px;border-radius:50%;display:grid;place-items:center;color:var(--tx2);box-shadow:inset 0 0 0 1px var(--line2);transition:color .15s,box-shadow .15s,background .15s}
+.pick .pv:hover{color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+.pick .pv.on{background:#fff;color:#000}
+.pick .pv svg{width:10px;height:10px;fill:currentColor;margin-left:2px}
+.pick .now{font:500 10px var(--mono);color:var(--tx3);padding:7px 4px 1px;min-height:22px}
+@media (max-width:720px){.pick{top:auto;bottom:56px;left:8px;right:8px;width:auto}.pick .list{display:grid;grid-template-columns:1fr 1fr}}
+
+/* ---------- stage: a page you are reading ---------- */
+.stage{position:fixed;inset:52px 0 0 0;overflow:hidden;background:#0a0a0a}
+.page{position:absolute;inset:0;overflow:hidden;padding:64px 28px;color:#8e8e93;font:18px/1.72 'Newsreader',Georgia,serif;transition:filter .8s var(--out),transform .8s var(--spring)}
+.page .col{max-width:640px;margin:0 auto}
+.page .k{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#5b5b60}
+.page h1{font:500 42px/1.1 'Newsreader',serif;letter-spacing:-.02em;margin:12px 0 18px;color:#e6e6e8}
+.page p{margin:0 0 18px}
+.veil{position:absolute;inset:0;z-index:5;background:rgba(0,0,0,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:opacity .9s var(--out),backdrop-filter .9s var(--out)}
+.veil.thin{opacity:.35}
+.veil.off{opacity:0;pointer-events:none}
+
+/* ---------- the panel: black glass ---------- */
+.panel{position:absolute;z-index:10;left:50%;top:50%;width:2px;height:0;border-radius:2px;overflow:hidden;isolation:isolate;
+  background:#fff;box-shadow:0 0 12px 2px rgba(255,255,255,.75),0 0 40px 8px rgba(255,255,255,.18);
+  transition:left .62s var(--spring),top .62s var(--spring),width .62s var(--spring),height .62s var(--spring),border-radius .62s var(--spring),background .45s var(--out),box-shadow .45s var(--out),opacity .3s}
+.panel.glass{background:linear-gradient(180deg,rgba(30,30,33,.86) 0%,rgba(12,12,13,.9) 45%,rgba(6,6,7,.94) 100%);
+  backdrop-filter:blur(40px) saturate(120%);-webkit-backdrop-filter:blur(40px) saturate(120%);
+  box-shadow:0 0 0 1px rgba(0,0,0,.7),0 24px 48px -12px rgba(0,0,0,.8),0 60px 120px -20px rgba(0,0,0,.9),0 0 128px 32px rgba(255,255,255,.04)}
+.panel.dragging{transition:width .25s var(--spring),height .25s var(--spring),border-radius .25s,background .25s,box-shadow .25s}
+.rim{position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:4;opacity:0;transition:opacity .4s;
+  background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,.07) 22%,rgba(255,255,255,.03) 78%,rgba(255,255,255,.16));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.panel.glass .rim{opacity:1}
+/* one pass of light across the glass, like the shine on a tank */
+.sheen{position:absolute;inset:-20% auto -20% 0;width:40%;z-index:5;pointer-events:none;opacity:0;transform:translateX(-140%) skewX(-18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
+.panel.shine .sheen{animation:sheen 1.1s var(--out)}
+@keyframes sheen{0%{opacity:1;transform:translateX(-140%) skewX(-18deg)}100%{opacity:1;transform:translateX(330%) skewX(-18deg)}}
+
+/* minimised: a line on the edge */
+.panel.nub{border-radius:99px;background:linear-gradient(180deg,rgba(40,40,44,.9),rgba(8,8,9,.95));box-shadow:0 0 0 1px rgba(0,0,0,.8),0 6px 18px rgba(0,0,0,.6),0 0 24px 2px rgba(255,255,255,.08)}
+.panel.nub .in{opacity:0;pointer-events:none;transition:opacity .1s}
+.nubline{position:absolute;left:50%;top:50%;width:2px;height:34px;border-radius:2px;background:#fff;transform:translate(-50%,-50%);opacity:0;z-index:6;
+  box-shadow:0 0 6px rgba(255,255,255,.9),0 0 18px rgba(255,255,255,.35);transition:opacity .3s var(--out) .2s}
+.panel.nub .nubline{opacity:.8}
+
+/* contents */
+.in{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;transition:opacity .3s var(--out)}
+.panel.glass:not(.nub) .in{opacity:1;transition:opacity .35s var(--out) .25s}
+.ohead{display:flex;align-items:center;gap:10px;height:44px;padding:0 10px 0 16px;flex:none;cursor:default;touch-action:none}
+.ohead .t{font:500 11px var(--mono);color:var(--tx3);letter-spacing:.06em;text-transform:uppercase}
+.ohead .skip{margin-left:auto;font-size:12px;color:var(--tx3);padding:5px 8px;border-radius:7px;transition:color .15s,background .15s}
+.ohead .skip:hover{color:var(--tx);background:rgba(255,255,255,.06)}
+.panel.grab .ohead{cursor:grab}
+.panel.dragging .ohead{cursor:grabbing}
+.body{position:relative;flex:1;min-height:0}
+.step{position:absolute;inset:0;padding:6px 24px 0;display:flex;flex-direction:column;visibility:hidden}
+.step.on{visibility:visible}
+.step>*{opacity:0;transform:translateY(8px);filter:blur(6px)}
+.step.on>*{opacity:1;transform:none;filter:none;transition:opacity .42s var(--out),transform .5s var(--spring),filter .42s var(--out)}
+.step.on>*:nth-child(2){transition-delay:.06s}.step.on>*:nth-child(3){transition-delay:.12s}.step.on>*:nth-child(4){transition-delay:.18s}.step.on>*:nth-child(5){transition-delay:.24s}
+.eyebrow{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx3);margin:0 0 10px}
+.title{font-size:23px;line-height:1.22;font-weight:600;letter-spacing:-.025em;margin:0 0 8px;text-wrap:balance}
+.sub{color:var(--tx2);font-size:13.5px;line-height:1.55;margin:0;text-wrap:pretty}
+.act{margin-top:auto;padding:0 0 18px;display:flex;align-items:center;gap:12px}
+.cta{height:32px;padding:0 16px;border-radius:99px;font-size:13px;font-weight:600;color:#000;background:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.5),0 0 18px rgba(255,255,255,.28),inset 0 -1px 0 rgba(0,0,0,.12);transition:transform .12s var(--out),box-shadow .2s}
+.cta:hover{box-shadow:0 0 0 1px #fff,0 0 26px rgba(255,255,255,.42),inset 0 -1px 0 rgba(0,0,0,.12)}
+.cta:active{transform:scale(.96)}
+.hint{font-size:12px;color:var(--tx3);display:flex;align-items:center;gap:6px}
+.tryit{display:flex;align-items:center;gap:10px;margin-top:18px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--line)}
+.tryit .keys{display:flex;gap:5px}
+.tryit .keys kbd{font-size:13px;padding:4px 10px}
+.tryit button.keys{padding:0}
+.tryit .s{font-size:12.5px;color:var(--tx2)}
+.tryit.ok{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.tick{width:18px;height:18px;border-radius:50%;margin-left:auto;display:grid;place-items:center;background:#fff;color:#000;opacity:0;transform:scale(.6);transition:opacity .25s var(--out),transform .35s var(--spring)}
+.tick svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.6}
+.tryit.ok .tick{opacity:1;transform:none}
+.dots{position:absolute;left:24px;bottom:58px;display:flex;gap:6px}
+.dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.16);transition:background .3s,box-shadow .3s,width .4s var(--spring)}
+.dots i.on{background:#fff;box-shadow:0 0 6px rgba(255,255,255,.8);width:14px;border-radius:3px}
+.dots i.done{background:rgba(255,255,255,.5)}
+.panel:not(.counting) .dots{opacity:0}
+
+/* write demo */
+.demo{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px var(--line);min-height:96px;font-size:13.5px;color:#d9d9dc}
+.demo .h{font-size:18px;font-weight:600;color:#fff;letter-spacing:-.01em;min-height:26px}
+.demo .h .mk,.demo .li .mk{color:var(--tx3);transition:opacity .25s,max-width .3s var(--spring);display:inline-block;overflow:hidden;vertical-align:bottom;white-space:pre}
+.demo .gone{opacity:0;max-width:0}
+.demo .li{display:flex;align-items:center;gap:0;min-height:22px;margin-top:4px}
+.demo .li .dot{width:5px;height:5px;border-radius:50%;background:#fff;margin:0 9px 0 3px;opacity:0;transform:scale(.4);transition:opacity .25s,transform .35s var(--spring)}
+.demo .li.b .dot{opacity:.9;transform:none}
+.caret{display:inline-block;width:1.5px;height:1.05em;background:#fff;vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.slash{display:inline-flex;gap:4px;margin-left:8px;opacity:0;transform:translateY(4px);transition:opacity .25s var(--out),transform .35s var(--spring)}
+.slash.on{opacity:1;transform:none}
+.slash span{font:500 10.5px var(--mono);color:var(--tx2);padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.07)}
+
+/* ---------- drop spots while placing ---------- */
+.spots{position:absolute;inset:0;z-index:8;pointer-events:none;opacity:0;transition:opacity .25s var(--out)}
+.spots.on{opacity:1}
+.spot{position:absolute;border-radius:18px;border:1px dashed rgba(255,255,255,.22);background:rgba(255,255,255,.02);transition:background .2s,border-color .2s,box-shadow .2s}
+.spot.near{border:1px solid rgba(255,255,255,.75);background:rgba(255,255,255,.06);box-shadow:0 0 30px rgba(255,255,255,.18),inset 0 0 20px rgba(255,255,255,.06)}
+
+/* ---------- start gate (browsers need a click before sound) ---------- */
+.gate{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(5,5,5,.6);transition:opacity .4s var(--out)}
+.gate.off{opacity:0;pointer-events:none}
+.gate button{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--tx2);font-size:13px}
+.gate .play{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--line2),0 0 40px rgba(255,255,255,.08);transition:transform .2s var(--out),box-shadow .2s}
+.gate button:hover .play{transform:scale(1.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 0 50px rgba(255,255,255,.16)}
+.gate .play svg{width:20px;height:20px;fill:#fff;margin-left:3px}
+.replay{position:absolute;right:16px;bottom:16px;z-index:20;font-size:12px;color:var(--tx2);padding:7px 12px;border-radius:99px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line);opacity:0;pointer-events:none;transition:opacity .3s}
+.replay.on{opacity:1;pointer-events:auto}
+.note{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:20;max-width:min(640px,calc(100% - 32px));text-align:center;font:500 11px/1.6 var(--mono);color:var(--tx3)}
+
+/* ---------- install scene: the disk image window ---------- */
+.scene{position:absolute;inset:0;display:none}
+.scene.on{display:block}
+.dmg{position:absolute;left:50%;top:50%;width:600px;max-width:calc(100% - 32px);transform:translate(-50%,-54%);border-radius:12px;overflow:hidden;
+  box-shadow:0 0 0 1px rgba(255,255,255,.1),0 30px 80px rgba(0,0,0,.7)}
+.dmg .bar{height:30px;display:flex;align-items:center;gap:8px;padding:0 12px;background:#2a2a2c;border-bottom:1px solid #000;font-size:12.5px;color:#cfcfd2}
+.dmg .bar i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.dmg .bar i+i{background:#febc2e}.dmg .bar i+i+i{background:#28c840}
+.dmg .bar span{flex:1;text-align:center;margin-right:52px}
+.dmg .win{position:relative;height:340px;background:radial-gradient(60% 70% at 50% 0%,rgba(255,255,255,.08),transparent 70%),linear-gradient(180deg,#121214,#050506)}
+.dmg .win::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(40% 50% at 50% 110%,rgba(255,255,255,.05),transparent)}
+.item{position:absolute;top:92px;width:150px;text-align:center;font-size:13px;color:#e6e6e8;user-select:none}
+.item img,.item svg.f{width:112px;height:112px;display:block;margin:0 auto 8px;filter:drop-shadow(0 10px 24px rgba(0,0,0,.6))}
+.item.app{left:70px;cursor:grab;touch-action:none;transition:transform .5s var(--spring),opacity .4s}
+.item.app.drag{transition:none;cursor:grabbing;z-index:3}
+.item.app.in{transform:translate(310px,0) scale(.35);opacity:0}
+.item.apps{right:70px}
+.item.apps svg.f{transition:transform .3s var(--spring),filter .3s}
+.item.apps.hot svg.f{transform:scale(1.08);filter:drop-shadow(0 0 22px rgba(255,255,255,.35)) drop-shadow(0 10px 24px rgba(0,0,0,.6))}
+.arc{position:absolute;left:50%;top:110px;width:180px;height:70px;transform:translateX(-50%);overflow:visible}
+.arc path{fill:none;stroke:rgba(255,255,255,.55);stroke-width:1.6;stroke-dasharray:3 7;stroke-linecap:round;animation:flow 1.4s linear infinite;filter:drop-shadow(0 0 4px rgba(255,255,255,.6))}
+@keyframes flow{to{stroke-dashoffset:-20}}
+.dmg .cap{position:absolute;left:0;right:0;bottom:30px;text-align:center;font-size:13px;color:var(--tx2)}
+.dmg .cap b{color:#fff;font-weight:500}
+.copied{position:absolute;left:50%;bottom:64px;transform:translate(-50%,6px);opacity:0;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--tx);padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--line2);transition:opacity .35s var(--out),transform .45s var(--spring)}
+.copied.on{opacity:1;transform:translate(-50%,0)}
+.copied button{font-weight:600;color:#000;background:#fff;border-radius:99px;padding:3px 10px;font-size:12px}
+
+/* ---------- update scene ---------- */
+.upanel{position:absolute;right:24px;top:50%;width:400px;max-width:calc(100% - 32px);height:440px;transform:translateY(-50%);border-radius:26px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(30,30,33,.86),rgba(12,12,13,.9) 45%,rgba(6,6,7,.94));backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.7),0 24px 48px -12px rgba(0,0,0,.8),0 0 128px 32px rgba(255,255,255,.04);display:flex;flex-direction:column;transition:opacity .35s var(--out),filter .45s var(--out),transform .45s var(--spring)}
+.upanel.relaunch{opacity:0;filter:blur(8px);transform:translateY(-50%) scale(.97)}
+.upanel .ed{flex:1;padding:16px 22px;color:#d9d9dc;font-size:14px;line-height:1.66}
+.upanel .ed h2{font-size:21px;margin:0 0 8px;color:#fff;letter-spacing:-.02em}
+.ucard{flex:none;height:0;overflow:hidden;transition:height .42s var(--spring)}
+.ucard .c{position:relative;padding:14px 18px 15px;background:rgba(255,255,255,.04);overflow:hidden}
+.ucard .c::before{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent)}
+.ucard .h{display:flex;align-items:baseline;gap:10px}.ucard .h b{font-size:13px;font-weight:600}.ucard .h span{margin-left:auto;font:500 10.5px var(--mono);color:var(--tx3)}
+.ucard ul{list-style:none;margin:6px 0 0;padding:0;font-size:12px;color:var(--tx2);line-height:1.5}
+.ucard li{position:relative;padding-left:13px}.ucard li::before{content:"";position:absolute;left:2px;top:.62em;width:4px;height:4px;border-radius:50%;background:var(--tx3)}
+.ucard .a{display:flex;align-items:center;gap:6px;margin-top:12px}
+.ucard .later{height:30px;padding:0 12px;border-radius:99px;font-size:12.5px;color:var(--tx2)}
+.ucard .badge{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#fff;color:#000;margin-right:8px;vertical-align:-4px;box-shadow:0 0 14px rgba(255,255,255,.6)}
+.ucard .badge svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.6}
+.ufoot{height:50px;flex:none;border-top:1px solid var(--line)}
+
+@media (max-width:720px){
+  .nav{gap:8px;padding:0 12px}.brand small{display:none}.seg button{padding:5px 8px;font-size:12px}
+  .page{padding:40px 16px}.page h1{font-size:30px}
+  .item.app{left:20px}.item.apps{right:20px}.item.app.in{transform:translate(200px,0) scale(.35)}
+  .arc{width:110px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="brand" href="index.html" title="Back to the main mockup"><i></i>Margin <small>FIRST LAUNCH · INSTALL · UPDATE</small></a>
+  <div class="seg" role="group" aria-label="Scene">
+    <button data-scene="first" aria-pressed="true">First launch</button>
+    <button data-scene="install" aria-pressed="false">Install</button>
+    <button data-scene="update" aria-pressed="false">Update</button>
+  </div>
+</nav>
+
+<main class="stage" id="stage">
+  <div class="pick" id="pick" role="radiogroup" aria-label="Sound palette"><small>SOUND · PICK A PALETTE</small><div class="list" id="plist"></div><div class="now" id="pnow"></div></div>
+  <article class="page" id="page"><div class="col">
+    <div class="k">Essay · 9 min read</div>
+    <h1>The quiet power of writing in the margins</h1>
+    <p>Every serious reader eventually discovers that the best ideas show up mid-paragraph. Not before you start, not after you finish, but right in the middle of someone else's sentence.</p>
+    <p>Most note tools ask you to leave. Switch apps, find the right notebook, wait for a sync spinner, and by the time the cursor blinks the thought has already gone soft. A margin never asks you to leave.</p>
+    <p>It sits right next to the text, patient and empty, ready the moment something sparks.</p>
+  </div></article>
+
+  <!-- FIRST LAUNCH -->
+  <section class="scene on" id="s-first">
+    <div class="veil" id="veil"></div>
+    <div class="spots" id="spots"></div>
+    <div class="panel" id="panel" data-anchor="c">
+      <div class="rim"></div><div class="sheen"></div><div class="nubline"></div>
+      <div class="in">
+        <div class="ohead" id="ohead"><span class="t" id="otitle">Margin</span><button class="skip" id="skip">Skip</button></div>
+        <div class="body">
+          <section class="step" data-step="0">
+            <p class="eyebrow">Welcome</p>
+            <h2 class="title">A quiet place to write, right next to what you read.</h2>
+            <p class="sub">Four small things, and you are set. About thirty seconds.</p>
+            <div class="act"><button class="cta" data-next>Begin</button><span class="hint"><kbd>↵</kbd></span></div>
+          </section>
+          <section class="step" data-step="1">
+            <p class="eyebrow">01 · Float</p>
+            <h2 class="title">It stays above everything.</h2>
+            <p class="sub">Full-screen Chrome, a PDF, a video call. Margin floats on top, on every Space.</p>
+            <div class="act"><button class="cta" data-next>Next</button><span class="hint"><kbd>↵</kbd></span></div>
+          </section>
+          <section class="step" data-step="2">
+            <p class="eyebrow">02 · Fold</p>
+            <h2 class="title">Fold it into a line.</h2>
+            <p class="sub">When you want to read, it waits on the edge. Same keys to bring it back.</p>
+            <div class="tryit" id="tryFold"><button class="keys" id="foldKeys" aria-label="Press Option Space"><kbd>⌥</kbd> <kbd>Space</kbd></button><span class="s" id="foldMsg">Try it now</span><span class="tick"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span></div>
+            <div class="act"><button class="cta" data-next id="foldNext" hidden>Next</button></div>
+          </section>
+          <section class="step" data-step="3">
+            <p class="eyebrow">03 · Place</p>
+            <h2 class="title">Put it where it suits you.</h2>
+            <p class="sub">Drag the top of this panel. It snaps to any edge or corner.</p>
+            <div class="tryit" id="tryPlace"><span class="s" id="placeMsg">Drag from the top bar</span><span class="tick"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span></div>
+            <div class="act"><button class="cta" data-next id="placeNext" hidden>Next</button></div>
+          </section>
+          <section class="step" data-step="4">
+            <p class="eyebrow">04 · Write</p>
+            <h2 class="title">Just type. It turns into notes.</h2>
+            <div class="demo" id="demo"><div class="h" id="dh"></div><div class="li" id="dl"><i class="dot"></i><span id="dlt"></span></div></div>
+            <div class="act"><button class="cta" data-next>Next</button><span class="hint">Drop images and links in too</span></div>
+          </section>
+          <section class="step" data-step="5">
+            <p class="eyebrow">Ready</p>
+            <h2 class="title">That's all of it.</h2>
+            <p class="sub">Your notes are plain files on this Mac. Nothing leaves it. <kbd>⌥</kbd> <kbd>N</kbd> starts a new one.</p>
+            <div class="act"><button class="cta" id="finish">Start writing</button></div>
+          </section>
+          <section class="step" data-step="6">
+            <h2 class="title" style="margin-top:6px">Reading notes</h2>
+            <p class="sub">Your first note. Start typing<span class="caret"></span></p>
+          </section>
+        </div>
+        <div class="dots" id="dots"><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <div class="gate" id="gate"><button id="play"><span class="play"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></span>Play the first launch</button></div>
+    <button class="replay" id="replay">Replay</button>
+    <p class="note" id="noteFirst">Starts by itself the first time Margin opens. Esc or Skip ends it. Sounds made with ElevenLabs; pick a palette top left.</p>
+  </section>
+
+  <!-- INSTALL -->
+  <section class="scene" id="s-install">
+    <div class="veil thin"></div>
+    <div class="dmg" id="dmg">
+      <div class="bar"><i></i><i></i><i></i><span>Margin</span></div>
+      <div class="win" id="win">
+        <svg class="arc" viewBox="0 0 180 70" aria-hidden="true"><path d="M8 52 C 50 4, 130 4, 172 46"/><path d="M162 36 L172 46 L158 50" style="stroke-dasharray:none;animation:none"/></svg>
+        <div class="item app" id="appIcon"><img src="icon.svg" alt="" draggable="false">Margin</div>
+        <div class="item apps" id="appsFolder">
+          <svg class="f" viewBox="0 0 112 112" aria-hidden="true"><defs><linearGradient id="fb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6cc0ff"/><stop offset="1" stop-color="#2f8de4"/></linearGradient><linearGradient id="ff" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset="1" stop-color="#3a9af0"/></linearGradient></defs>
+            <path d="M10 26a8 8 0 0 1 8-8h26l8 9h42a8 8 0 0 1 8 8v54a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z" fill="url(#fb)"/>
+            <rect x="10" y="34" width="92" height="64" rx="8" fill="url(#ff)"/>
+            <path d="M43 80l13-28 13 28M48 70h16M40 80h32" stroke="#1f6fbf" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+          </svg>Applications</div>
+        <p class="cap" id="cap">Drag <b>Margin</b> into <b>Applications</b></p>
+        <div class="copied" id="copied"><span>Margin is in Applications</span><button id="openIt">Open</button></div>
+      </div>
+    </div>
+    <p class="note">The disk image window can carry this background and layout. Finder plays no sound, so the chime plays the first time Margin opens.</p>
+  </section>
+
+  <!-- UPDATE -->
+  <section class="scene" id="s-update">
+    <div class="upanel" id="upanel">
+      <div class="ed"><h2>Reading notes</h2>Capture costs less than two seconds, or you capture fewer thoughts.</div>
+      <div class="ucard" id="ucard"><div class="c" id="uc"></div></div>
+      <div class="ufoot"></div>
+    </div>
+    <button class="replay on" id="ureplay">Replay</button>
+    <p class="note">After "Restart to update", Margin comes back on the new version and says so once, with a soft chime. The card goes away by itself after 6 seconds.</p>
+  </section>
+</main>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const stage=$('#stage'), panel=$('#panel'), veil=$('#veil'), spotsEl=$('#spots');
+
+/* ---------- sound ---------- */
+const SOUNDS={"paper": {"arrive": "../Resources/Sounds/arrive.mp3", "step": "../Resources/Sounds/step.mp3", "collapse": "../Resources/Sounds/collapse.mp3", "expand": "../Resources/Sounds/expand.mp3", "snap": "../Resources/Sounds/snap.mp3", "done": "../Resources/Sounds/done.mp3", "installed": "../Resources/Sounds/installed.mp3"}};
+const PALETTES=[
+  ['paper','Paper','paper slide, pencil tap, page fold'],
+  ['tactile','Tactile','felt, wood, soft key clicks'],
+  ['air','Air','soft breaths and cushioned thuds'],
+  ['digital','Digital','tiny haptic ticks and blips'],
+  ['glass','Glass','first try: shimmer and chimes'],
+  ['off','Off','silent'],
+].filter(([k])=>k==='off'||SOUNDS[k]);
+const ORDER=['arrive','step','collapse','expand','snap','done','installed'];
+let pal=PALETTES[0][0]; try{const s=localStorage.getItem('margin.onb.palette');if(s&&PALETTES.some(p=>p[0]===s))pal=s}catch(e){}
+const banks={};
+function bank(p){if(!banks[p]){banks[p]={};for(const [k,src] of Object.entries(SOUNDS[p]||{})){const a=new Audio(src);a.preload='auto';a.volume=k==='step'?0.5:0.65;banks[p][k]=a}}return banks[p]}
+function play(k,p=pal){if(p==='off')return;const a=bank(p)[k];if(!a)return;try{a.currentTime=0;a.play().catch(()=>{})}catch(e){}}
+let pvTimers=[];
+function preview(p,btn){pvTimers.forEach(clearTimeout);pvTimers=[];$$('.pv').forEach(b=>b.classList.remove('on'));if(p==='off')return;btn.classList.add('on');
+  ORDER.forEach((k,i)=>pvTimers.push(setTimeout(()=>{play(k,p);$('#pnow').textContent=p+' · '+k},i*750)));
+  pvTimers.push(setTimeout(()=>{btn.classList.remove('on');$('#pnow').textContent=''},ORDER.length*750+600))}
+function drawPicker(){$('#plist').innerHTML=PALETTES.map(([k,n,d])=>`<div class="row" role="radio" aria-checked="${k===pal}"><button class="sel" data-p="${k}">${n}<em>${d}</em></button>${k==='off'?'':`<button class="pv" data-pv="${k}" aria-label="Preview ${n}"><svg viewBox="0 0 10 10"><path d="M1 0v10l9-5z"/></svg></button>`}</div>`).join('')}
+$('#plist').addEventListener('click',e=>{const s=e.target.closest('[data-p]'),v=e.target.closest('[data-pv]');
+  if(v){preview(v.dataset.pv,v);return}
+  if(s){pal=s.dataset.p;try{localStorage.setItem('margin.onb.palette',pal)}catch(e){};drawPicker();play('step')}});
+drawPicker();
+
+/* ---------- scenes ---------- */
+let scene='first';
+function setScene(s){scene=s;$$('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.scene===s));$$('.scene').forEach(x=>x.classList.toggle('on',x.id==='s-'+s));
+  $('#page').style.filter=s==='first'?'':'none';
+  if(s==='install')resetInstall(); if(s==='update')runUpdate(); if(s==='first')resetFirst();
+  try{history.replaceState(null,'','#'+s)}catch(e){}}
+$$('.seg button').forEach(b=>b.onclick=()=>setScene(b.dataset.scene));
+
+/* ---------- geometry ---------- */
+const M=20, PW=400, PH=330;
+function frame(anchor,nub){const W=stage.clientWidth,H=stage.clientHeight;
+  const w=nub?(anchor==='t'||anchor==='b'?84:8):Math.min(PW,W-2*16), h=nub?(anchor==='t'||anchor==='b'?8:84):Math.min(PH,H-2*16);
+  const m=nub?6:M, cx=(W-w)/2, cy=(H-h)/2;
+  const x={l:m,c:cx,r:W-w-m}, y={t:m,c:cy,b:H-h-m};
+  const ax=anchor.includes('l')?'l':anchor.includes('r')?'r':'c', ay=anchor.includes('t')?'t':anchor.includes('b')?'b':'c';
+  return {x:x[ax],y:y[ay],w,h}}
+function put(f){Object.assign(panel.style,{left:f.x+'px',top:f.y+'px',width:f.w+'px',height:f.h+'px'})}
+let anchor='c', folded=false;
+function layout(){if(panel.classList.contains('glass'))put(frame(anchor,folded))}
+addEventListener('resize',layout);
+const ANCHORS=['tl','t','tr','l','r','bl','b','br'];
+
+/* ---------- first launch ---------- */
+let step=-1, timers=[];
+const later=(fn,ms)=>timers.push(setTimeout(fn,RM?Math.min(ms,60):ms));
+function clearTimers(){timers.forEach(clearTimeout);timers=[]}
+function resetFirst(){clearTimers();step=-1;anchor='c';folded=false;
+  panel.className='panel';panel.removeAttribute('style');veil.className='veil';$('#gate').classList.remove('off');$('#replay').classList.remove('on');
+  $$('.step').forEach(s=>s.classList.remove('on'));$('#tryFold').classList.remove('ok');$('#tryPlace').classList.remove('ok');
+  $('#foldNext').hidden=true;$('#placeNext').hidden=true;$('#foldMsg').textContent='Try it now';$('#placeMsg').textContent='Drag from the top bar';$('#otitle').textContent='Margin';$('#skip').hidden=false}
+function arrive(){$('#gate').classList.add('off');play('arrive');
+  const W=stage.clientWidth,H=stage.clientHeight;
+  // a line of light draws, then opens into the glass panel
+  Object.assign(panel.style,{left:(W/2-1)+'px',top:(H/2)+'px',width:'2px',height:'0px'});
+  // a frame that arrives late (background tab) must not shrink the panel once it has opened
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!panel.classList.contains('glass'))Object.assign(panel.style,{top:(H/2-60)+'px',height:'120px'})}));
+  later(()=>{panel.classList.add('glass');put(frame('c',false));later(()=>{shine();go(0)},380)},RM?0:900)}
+function shine(){if(RM)return;panel.classList.remove('shine');void panel.offsetWidth;panel.classList.add('shine')}
+function go(n){step=n;$$('.step').forEach(s=>s.classList.toggle('on',+s.dataset.step===n));
+  panel.classList.toggle('counting',n>=1&&n<=4);
+  $$('#dots i').forEach((d,i)=>{d.className=i+1<n?'done':i+1===n?'on':''});
+  panel.classList.toggle('grab',n===3);
+  if(n>0)play('step');
+  if(n===1){anchor='r';veil.className='veil thin';put(frame('r',false))}
+  if(n===4)runDemo();
+  if(n===5){veil.className='veil off';later(()=>{play('done');shine()},120)}
+  const btn=$(`.step[data-step="${n}"] .cta`);if(btn&&!btn.hidden)later(()=>btn.focus({preventScroll:true}),400)}
+$$('[data-next]').forEach(b=>b.onclick=()=>go(step+1));
+$('#play').onclick=arrive;
+$('#replay').onclick=()=>{resetFirst();arrive()};
+$('#finish').onclick=finish;
+$('#skip').onclick=finish;
+function finish(){clearTimers();if(folded)toggleFold(true);veil.className='veil off';panel.classList.remove('counting','grab');
+  $('#otitle').textContent='Reading notes';$('#skip').hidden=true;go(6);if(step!==5)play('done');shine();later(()=>$('#replay').classList.add('on'),600)}
+
+/* fold: the panel collapses to a line on its edge and comes back */
+let folds=0;
+function toggleFold(silent){if(!panel.classList.contains('glass'))return;folded=!folded;
+  panel.classList.toggle('nub',folded);put(frame(anchor,folded));if(!silent)play(folded?'collapse':'expand');
+  if(step!==2||silent)return;
+  folds++;
+  if(folded){$('#foldMsg').textContent='Now bring it back: ⌥ Space again'}
+  else if(folds>=2){$('#tryFold').classList.add('ok');$('#foldMsg').textContent='That is the whole trick';$('#foldNext').hidden=false;later(()=>$('#foldNext').focus({preventScroll:true}),300)}}
+$('#foldKeys').onclick=()=>{if(step===2)toggleFold()};
+panel.addEventListener('click',e=>{if(e.target.closest('#foldKeys'))return;if(folded&&step===2)toggleFold()});
+
+/* place: drag the top bar, see the 8 spots, drop to snap */
+let drag=null;
+function buildSpots(){spotsEl.innerHTML='';for(const a of ANCHORS){const f=frame(a,false),s=document.createElement('div');s.className='spot';s.dataset.a=a;
+  const k=.42;Object.assign(s.style,{left:(f.x+f.w*(1-k)/2)+'px',top:(f.y+f.h*(1-k)/2)+'px',width:f.w*k+'px',height:f.h*k+'px'});spotsEl.appendChild(s)}}
+function nearest(px,py){let best=null,bd=1e9;for(const a of ANCHORS){const f=frame(a,false),dx=f.x+f.w/2-px,dy=f.y+f.h/2-py,d=dx*dx+dy*dy;if(d<bd){bd=d;best=a}}return best}
+$('#ohead').addEventListener('pointerdown',e=>{if(step!==3||e.target.closest('button'))return;
+  e.preventDefault();$('#ohead').setPointerCapture(e.pointerId);
+  const r=panel.getBoundingClientRect(),sr=stage.getBoundingClientRect();
+  drag={ox:e.clientX-r.left,oy:e.clientY-r.top,sr};buildSpots();spotsEl.classList.add('on');panel.classList.add('dragging');play('step')});
+$('#ohead').addEventListener('pointermove',e=>{if(!drag)return;const x=e.clientX-drag.sr.left-drag.ox,y=e.clientY-drag.sr.top-drag.oy;
+  Object.assign(panel.style,{left:x+'px',top:y+'px'});const a=nearest(x+panel.offsetWidth/2,y+panel.offsetHeight/2);
+  $$('.spot').forEach(s=>s.classList.toggle('near',s.dataset.a===a))});
+function endDrag(){if(!drag)return;const a=nearest(panel.offsetLeft+panel.offsetWidth/2,panel.offsetTop+panel.offsetHeight/2);drag=null;
+  panel.classList.remove('dragging');spotsEl.classList.remove('on');anchor=a;put(frame(a,false));play('snap');
+  if(step===3){$('#tryPlace').classList.add('ok');$('#placeMsg').textContent='Snapped. It remembers this spot';$('#placeNext').hidden=false;later(()=>$('#placeNext').focus({preventScroll:true}),300)}}
+$('#ohead').addEventListener('pointerup',endDrag);$('#ohead').addEventListener('pointercancel',endDrag);
+
+/* write: markdown typed, rendered as you go */
+function runDemo(){const h=$('#dh'),l=$('#dl'),lt=$('#dlt');h.innerHTML='';lt.innerHTML='';l.classList.remove('b');
+  const type=(el,text,i,done)=>{if(step!==4)return;if(i>text.length){done&&done();return}
+    el.innerHTML=text.slice(0,i).replace(/^(#|-) /,'<span class="mk">$1 </span>')+'<span class="caret"></span>';later(()=>type(el,text,i+1,done),RM?0:55)};
+  type(h,'# Reading notes',0,()=>{const mk=h.querySelector('.mk');if(mk)mk.classList.add('gone');h.querySelector('.caret')?.remove();
+    later(()=>type(lt,'- Capture costs under 2 seconds',0,()=>{const mk=lt.querySelector('.mk');if(mk)mk.classList.add('gone');l.classList.add('b');
+      later(()=>{lt.innerHTML=lt.innerHTML.replace('<span class="caret"></span>','')+'<span class="slash" id="sl"><span>/</span><span>Heading</span><span>To-do</span><span>Quote</span><span>Image</span></span><span class="caret"></span>';
+        later(()=>$('#sl')&&$('#sl').classList.add('on'),60)},500)}),350)})}
+
+/* keys */
+addEventListener('keydown',e=>{if(scene!=='first')return;
+  if(e.altKey&&e.code==='Space'){e.preventDefault();if(step===2)toggleFold();return}
+  if(e.key==='Escape'&&step>=0&&step<6){finish();return}
+  if(e.key==='Enter'&&!e.repeat){if($('#gate').classList.contains('off')===false){arrive();return}
+    const b=$(`.step[data-step="${step}"] .cta`);if(b&&!b.hidden&&document.activeElement!==b){e.preventDefault();b.click()}}});
+
+/* ---------- install ---------- */
+const appIcon=$('#appIcon'),folder=$('#appsFolder');let idrag=null;
+function resetInstall(){appIcon.className='item app';appIcon.style.transform='';folder.classList.remove('hot');$('#copied').classList.remove('on');$('#cap').style.opacity=1}
+appIcon.addEventListener('pointerdown',e=>{if(appIcon.classList.contains('in'))return;e.preventDefault();appIcon.setPointerCapture(e.pointerId);idrag={x:e.clientX,y:e.clientY};appIcon.classList.add('drag')});
+appIcon.addEventListener('pointermove',e=>{if(!idrag)return;const dx=e.clientX-idrag.x,dy=e.clientY-idrag.y;appIcon.style.transform=`translate(${dx}px,${dy}px)`;
+  const a=appIcon.getBoundingClientRect(),f=folder.getBoundingClientRect();folder.classList.toggle('hot',a.right>f.left+30&&a.left<f.right-30&&a.bottom>f.top+30&&a.top<f.bottom-30)});
+function idrop(){if(!idrag)return;idrag=null;appIcon.classList.remove('drag');
+  if(folder.classList.contains('hot')){appIcon.style.transform='';appIcon.classList.add('in');folder.classList.remove('hot');play('snap');$('#cap').style.opacity=0;
+    setTimeout(()=>{$('#copied').classList.add('on');play('installed')},650)}
+  else{appIcon.style.transform=''}}
+appIcon.addEventListener('pointerup',idrop);appIcon.addEventListener('pointercancel',idrop);
+$('#openIt').onclick=()=>{setScene('first');arrive()};
+
+/* ---------- update installed ---------- */
+let utimers=[];
+function runUpdate(){utimers.forEach(clearTimeout);utimers=[];const up=$('#upanel'),card=$('#ucard'),c=$('#uc');up.classList.remove('relaunch');
+  const show=html=>{c.innerHTML=html;card.style.height=c.offsetHeight+'px'};
+  show('<div class="h"><b>Margin 0.2.1 is ready</b><span>0.2.0 → 0.2.1</span></div><ul><li>Faster search across large note folders</li><li>Fixed the caret jumping after pasting a link</li></ul><div class="a"><button class="cta" id="urs">Restart to update</button><button class="later">Later</button></div>');
+  $('#urs').onclick=()=>{c.querySelector('.h b').textContent='Installing Margin 0.2.1…';up.classList.add('relaunch');
+    utimers.push(setTimeout(()=>{card.style.height='0px';up.classList.remove('relaunch');
+      utimers.push(setTimeout(()=>{play('installed');show('<div class="h"><b><span class="badge"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>You\'re on Margin 0.2.1</b></div><ul><li>Faster search across large note folders</li><li>Fixed the caret jumping after pasting a link</li></ul>');
+        utimers.push(setTimeout(()=>{card.style.height='0px'},6000))},500))},1100))}}
+$('#ureplay').onclick=runUpdate;
+
+/* ---------- boot ---------- */
+const h=(location.hash||'').slice(1);setScene(['first','install','update'].includes(h)?h:'first');
+})();
+</script>
+</body>
+</html>
