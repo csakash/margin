@@ -51,6 +51,8 @@ public final class EditorController: NSObject {
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
+        textView.usesFindBar = true                 // ⌘F / ⌘G / ⇧⌘G
+        textView.isIncrementalSearchingEnabled = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
@@ -73,6 +75,17 @@ public final class EditorController: NSObject {
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled),
                                                name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+        // Undo and redo restore the text without a text-did-change notification, so they were
+        // never saved. Treat them as edits.
+        for name in [NSNotification.Name.NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange] {
+            NotificationCenter.default.addObserver(self, selector: #selector(undoneOrRedone(_:)), name: name, object: nil)
+        }
+    }
+
+    @objc private func undoneOrRedone(_ note: Notification) {
+        guard let um = note.object as? UndoManager, um === textView.undoManager else { return }
+        onChange?(textView.string)
+        textView.invalidateDecorations()
     }
 
     @objc private func scrolled(_ note: Notification) {
@@ -107,6 +120,28 @@ public final class EditorController: NSObject {
         case .divider: perform(EditorLogic.blockInsertion(text: ns, caret: caret, block: "---"))
         default: perform(EditorLogic.applyPrefix(kind, text: ns, caret: caret))
         }
+    }
+
+    /// ⌘B / ⌘I / ⌘E: wrap the selection in a markdown marker, or unwrap it when the marker is
+    /// already right around it. With nothing selected, inserts a pair and puts the caret inside.
+    public func toggleInline(_ marker: String) {
+        closeSlashMenu()
+        let ns = textView.string as NSString
+        let sel = textView.selectedRange()
+        let m = (marker as NSString).length
+        textView.breakUndoCoalescing()
+        if sel.location >= m, NSMaxRange(sel) + m <= ns.length,
+           ns.substring(with: NSRange(location: sel.location - m, length: m)) == marker,
+           ns.substring(with: NSRange(location: NSMaxRange(sel), length: m)) == marker {
+            let outer = NSRange(location: sel.location - m, length: sel.length + 2 * m)
+            _ = textView.replace(outer, with: ns.substring(with: sel),
+                                 select: NSRange(location: sel.location - m, length: sel.length))
+        } else {
+            let inner = ns.substring(with: sel)
+            _ = textView.replace(sel, with: marker + inner + marker,
+                                 select: NSRange(location: sel.location + m, length: sel.length))
+        }
+        textView.breakUndoCoalescing()
     }
 
     /// Insert at the caret as its own paragraph(s).

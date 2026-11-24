@@ -248,6 +248,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // MARK: Actions
 
     @objc private func newNoteAction() { newNote() }
+    @objc private func boldAction() { formatInline("**") }
+    @objc private func italicAction() { formatInline("_") }
+    @objc private func inlineCodeAction() { formatInline("`") }
+    @objc private func formatBlockAction(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let kind = BlockKind(rawValue: raw), editorIsActive else { return }
+        editor.apply(kind)
+    }
+    private func formatInline(_ marker: String) {
+        guard editorIsActive else { return }
+        editor.toggleInline(marker)
+    }
+    /// Formatting shortcuts only act on the note when the editor has the keyboard.
+    private var editorIsActive: Bool {
+        tour?.isBusy != true && !panel.isMinimised && panel.panel.firstResponder === editor.textView
+    }
     @objc private func minimiseAction() { panel.setMinimised(true) }
     @objc private func toggleDrawerAction() { drawer.toggle() }
 
@@ -492,12 +507,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         app.addItem(withTitle: "Show Welcome Tour", action: #selector(showTour), keyEquivalent: "").target = self
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Margin", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthers = app.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        app.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         app.addItem(withTitle: "Quit Margin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = app
 
         let fileItem = NSMenuItem(); main.addItem(fileItem)
         let file = NSMenu(title: "File")
         file.addItem(withTitle: "New Note", action: #selector(newNoteAction), keyEquivalent: "n").target = self
+        file.addItem(withTitle: "All Notes", action: #selector(toggleDrawerAction), keyEquivalent: "o").target = self
+        file.addItem(.separator())
+        // The panel never closes; ⌘W folds it into its line, like ⌥ Space.
+        file.addItem(withTitle: "Close", action: #selector(minimiseAction), keyEquivalent: "w").target = self
         fileItem.submenu = file
 
         let editItem = NSMenuItem(); main.addItem(editItem)
@@ -509,8 +531,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        let pastePlain = edit.addItem(withTitle: "Paste and Match Style", action: #selector(NSTextView.pasteAsPlainText(_:)), keyEquivalent: "v")
+        pastePlain.keyEquivalentModifierMask = [.command, .option, .shift]
+        edit.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(.separator())
+        let findItem = NSMenuItem(title: "Find", action: nil, keyEquivalent: "")
+        let find = NSMenu(title: "Find")
+        for (title, key, mods, action) in [
+            ("Find…", "f", NSEvent.ModifierFlags.command, NSTextFinder.Action.showFindInterface),
+            ("Find Next", "g", [.command], .nextMatch),
+            ("Find Previous", "g", [.command, .shift], .previousMatch),
+        ] as [(String, String, NSEvent.ModifierFlags, NSTextFinder.Action)] {
+            let item = find.addItem(withTitle: title, action: #selector(NSResponder.performTextFinderAction(_:)), keyEquivalent: key)
+            item.keyEquivalentModifierMask = mods
+            item.tag = action.rawValue
+        }
+        findItem.submenu = find
+        edit.addItem(findItem)
         editItem.submenu = edit
+        let formatItem = NSMenuItem(); main.addItem(formatItem)
+        let format = NSMenu(title: "Format")
+        format.addItem(withTitle: "Bold", action: #selector(boldAction), keyEquivalent: "b").target = self
+        format.addItem(withTitle: "Italic", action: #selector(italicAction), keyEquivalent: "i").target = self
+        format.addItem(withTitle: "Inline Code", action: #selector(inlineCodeAction), keyEquivalent: "e").target = self
+        format.addItem(.separator())
+        let blocks: [(String, String, NSEvent.ModifierFlags, BlockKind)] = [
+            ("Body Text", "0", [.command], .paragraph),
+            ("Heading 1", "1", [.command], .heading1),
+            ("Heading 2", "2", [.command], .heading2),
+            ("Heading 3", "3", [.command], .heading3),
+            ("Numbered List", "7", [.command, .shift], .numbered),
+            ("Bullet List", "8", [.command, .shift], .bullet),
+            ("To-do", "9", [.command, .shift], .todo),
+            ("Quote", ".", [.command, .shift], .quote),
+            ("Code Block", "c", [.command, .option], .code),
+        ]
+        for (title, key, mods, kind) in blocks {
+            let item = format.addItem(withTitle: title, action: #selector(formatBlockAction(_:)), keyEquivalent: key)
+            item.keyEquivalentModifierMask = mods
+            item.representedObject = kind.rawValue
+            item.target = self
+        }
+        formatItem.submenu = format
+
+        let windowItem = NSMenuItem(); main.addItem(windowItem)
+        let window = NSMenu(title: "Window")
+        window.addItem(withTitle: "Minimise", action: #selector(minimiseAction), keyEquivalent: "m").target = self
+        windowItem.submenu = window
+        NSApp.windowsMenu = window
+
         NSApp.mainMenu = main
     }
 
