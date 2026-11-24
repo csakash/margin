@@ -31,11 +31,14 @@ public enum ScreenAccess {
     /// Quits and opens Margin again, so a new grant takes effect. A tiny shell waits for this
     /// process to exit before opening the app, so two copies (and their hotkeys) never overlap.
     public static func relaunch() {
+        let bundle = Bundle.main.bundleURL
+        // Unbundled (swift run): there is no app to open again.
+        guard bundle.pathExtension == "app" else { return }
         let pid = ProcessInfo.processInfo.processIdentifier
-        let path = Bundle.main.bundleURL.path
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
-        p.arguments = ["-c", "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$0\"", path]
+        // Waits at most ~10 s; if Margin did not quit by then, it does not reopen it later.
+        p.arguments = ["-c", "i=0; while /bin/kill -0 \(pid) 2>/dev/null; do i=$((i+1)); [ $i -gt 50 ] && exit 0; /bin/sleep 0.2; done; /usr/bin/open \"$0\"", bundle.path]
         do {
             try p.run()
             NSApp.terminate(nil)

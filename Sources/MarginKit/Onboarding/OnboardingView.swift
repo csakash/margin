@@ -325,7 +325,7 @@ final class OnboardingView: NSView {
     }
 
     private func setDots(active index: Int) {
-        // Dots stand for steps 1…4; hidden on the welcome and the finish.
+        // Dots stand for steps 1…5; hidden on the welcome and the finish.
         dots.isHidden = !(1...5).contains(index)
         for (i, d) in dotViews.enumerated() {
             let n = i + 1

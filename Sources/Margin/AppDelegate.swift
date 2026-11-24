@@ -352,7 +352,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 ScreenAccess.openSettings()
                 showScreenNotice(.reopen)
             case .reopen:
-                ScreenAccess.relaunch()
+                // A waiting update installs on quit; let Sparkle restart into it instead of racing it.
+                if updates.readyVersion != nil { updates.restartToUpdate() } else { ScreenAccess.relaunch() }
             case nil:
                 break
             }

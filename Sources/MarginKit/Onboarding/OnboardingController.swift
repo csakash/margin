@@ -1,6 +1,6 @@
 import AppKit
 
-/// Runs the first-launch tour: the arrival, six steps, sounds, the screen veil, and handing the
+/// Runs the first-launch tour: the arrival, seven steps (welcome, five topics, ready), sounds, the screen veil, and handing the
 /// panel back to the user afterwards. The app forwards three things to it while it is active:
 /// the ⌥ Space hotkey (`foldKeyPressed`), panel state changes (`panelStateChanged`) and a finished
 /// drag (`didPlace`).
@@ -161,8 +161,14 @@ public final class OnboardingController {
         if TourStep.all[step].kind == .screens, !askedForScreens, !ScreenAccess.isGranted {
             // macOS shows its prompt once; the grant takes effect after Margin restarts.
             askedForScreens = true
-            ScreenAccess.request()
-            view?.setTryMessage("Switch on Margin in the list, then reopen Margin when macOS asks")
+            if ScreenAccess.wasRequested {
+                // macOS only prompts once; after that, the switch is in System Settings.
+                ScreenAccess.openSettings()
+                view?.setTryMessage("Switch on Margin in System Settings, then reopen Margin")
+            } else {
+                ScreenAccess.request()
+                view?.setTryMessage("Switch on Margin in the list, then reopen Margin when macOS asks")
+            }
             view?.setPrimaryTitle("Next")
             view?.setSecondary(nil)
             return
