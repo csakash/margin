@@ -83,7 +83,11 @@ public final class EditorController: NSObject {
     }
 
     @objc private func undoneOrRedone(_ note: Notification) {
-        guard let um = note.object as? UndoManager, um === textView.undoManager else { return }
+        // The window shares one undo manager with the drawer's search field: only a change to
+        // the note's own text is an edit worth saving.
+        guard let um = note.object as? UndoManager, um === textView.undoManager,
+              textView.string != lastNotifiedText else { return }
+        lastNotifiedText = textView.string
         onChange?(textView.string)
         textView.invalidateDecorations()
     }
@@ -96,12 +100,16 @@ public final class EditorController: NSObject {
         styler.containerWidthMayHaveChanged()
     }
 
+    /// The text the app was last told about (opened or changed), so undo/redo saves only real changes.
+    private var lastNotifiedText = ""
+
     /// The full markdown text of the open note.
     public var text: String {
         get { textView.string }
         set {
             closeSlashMenu()
             textView.string = newValue
+            lastNotifiedText = newValue
             textView.typingAttributes = MarkdownStyler.baseAttributes
             textView.invalidateDecorations()
         }
@@ -130,7 +138,18 @@ public final class EditorController: NSObject {
         let sel = textView.selectedRange()
         let m = (marker as NSString).length
         textView.breakUndoCoalescing()
-        if sel.location >= m, NSMaxRange(sel) + m <= ns.length,
+        let selected = ns.substring(with: sel)
+        if selected.contains("\n") {
+            // Markdown emphasis does not span lines: wrap each non-empty line on its own.
+            let wrapped = selected.components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces).isEmpty ? $0 : marker + $0 + marker }
+                .joined(separator: "\n")
+            _ = textView.replace(sel, with: wrapped,
+                                 select: NSRange(location: sel.location, length: (wrapped as NSString).length))
+            textView.breakUndoCoalescing()
+            return
+        }
+        if sel.length > 0, sel.location >= m, NSMaxRange(sel) + m <= ns.length,
            ns.substring(with: NSRange(location: sel.location - m, length: m)) == marker,
            ns.substring(with: NSRange(location: NSMaxRange(sel), length: m)) == marker {
             let outer = NSRange(location: sel.location - m, length: sel.length + 2 * m)
@@ -226,6 +245,7 @@ public final class EditorController: NSObject {
 
 extension EditorController: NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) {
+        lastNotifiedText = textView.string
         onChange?(textView.string)
         updateSlashMenu()
         textView.invalidateDecorations()

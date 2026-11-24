@@ -263,8 +263,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var editorIsActive: Bool {
         tour?.isBusy != true && !panel.isMinimised && panel.panel.firstResponder === editor.textView
     }
-    @objc private func minimiseAction() { panel.setMinimised(true) }
-    @objc private func toggleDrawerAction() { drawer.toggle() }
+    @objc private func minimiseAction() {
+        if tour?.isActive == true {
+            if !panel.isMinimised { tour.foldKeyPressed() }   // same as the tour's own fold step
+            return
+        }
+        panel.setMinimised(true)
+    }
+    @objc private func toggleDrawerAction() {
+        guard tour?.isBusy != true else { return }
+        if panel.isMinimised {
+            panel.setMinimised(false)
+            drawer.setOpen(true)
+            return
+        }
+        drawer.toggle()
+    }
 
     @objc private func pinAction() {
         let b = main.header.pinButton
@@ -506,7 +520,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         app.addItem(withTitle: "Check for Updates Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "").target = self
         app.addItem(withTitle: "Show Welcome Tour", action: #selector(showTour), keyEquivalent: "").target = self
         app.addItem(.separator())
-        app.addItem(withTitle: "Hide Margin", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        // Margin is never fully hidden (⌥ Space and the menu bar icon could not bring it back):
+        // "Hide" folds the panel into its line.
+        app.addItem(withTitle: "Hide Margin", action: #selector(minimiseAction), keyEquivalent: "h").target = self
         let hideOthers = app.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]
         app.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")

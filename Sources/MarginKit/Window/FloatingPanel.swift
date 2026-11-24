@@ -46,10 +46,13 @@ public final class FloatingPanel: NSPanel {
                     NSApp.sendAction(action, to: target, from: item)
                 } else if action == Selector(("undo:")) || action == Selector(("redo:")) {
                     // Undo and redo are answered by the window's undo manager, which the
-                    // responder walk below does not reach for an inactive app.
-                    let um = firstResponder?.undoManager ?? undoManager
-                    if action == Selector(("undo:")) { if um?.canUndo == true { um?.undo() } }
-                    else if um?.canRedo == true { um?.redo() }
+                    // responder walk below does not reach for an inactive app. Only while the
+                    // user is typing in an editable text view: never into a hidden or folded note.
+                    if let tv = firstResponder as? NSTextView, tv.isEditable, !tv.hasMarkedText(),
+                       let um = tv.undoManager {
+                        if action == Selector(("undo:")) { if um.canUndo { um.undo() } }
+                        else if um.canRedo { um.redo() }
+                    }
                 } else if !(firstResponder?.tryToPerform(action, with: item) ?? false) {
                     NSApp.sendAction(action, to: nil, from: item)
                 }
@@ -68,7 +71,11 @@ public final class FloatingPanel: NSPanel {
             .compactMap { $0?.lowercased() }.filter { !$0.isEmpty })
         for item in menu.items {
             if let sub = item.submenu, let hit = menuItem(for: event, in: sub) { return hit }
-            guard item.action != nil, !item.keyEquivalent.isEmpty else { continue }
+            // `isEnabled` is no guide here: AppKit's auto-enabling finds no target for Copy, Paste,
+            // Undo… while Margin is inactive (the very problem this works around). Margin's own
+            // items are asked directly.
+            guard item.action != nil, !item.keyEquivalent.isEmpty, !item.isHidden else { continue }
+            if let v = item.target as? NSMenuItemValidation, !v.validateMenuItem(item) { continue }
             var itemMods = item.keyEquivalentModifierMask.intersection(relevant)
             var key = item.keyEquivalent
             if key != key.lowercased() { itemMods.insert(.shift); key = key.lowercased() }
