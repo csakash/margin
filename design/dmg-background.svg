@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 380" width="600" height="380">
+  <!-- Margin's disk image window. Finder puts the app icon at (150,170) and Applications at (450,170). -->
+  <defs>
+    <radialGradient id="top" cx="50%" cy="0%" r="75%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".09"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#131315"/><stop offset="1" stop-color="#050506"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
+  </defs>
+  <rect width="600" height="380" fill="url(#bg)"/>
+  <rect width="600" height="380" fill="url(#top)"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M232 160 C 270 112, 330 112, 368 156" stroke="#ffffff" stroke-opacity=".35" stroke-width="3" filter="url(#glow)"/>
+    <path d="M232 160 C 270 112, 330 112, 368 156" stroke="#ffffff" stroke-opacity=".7" stroke-width="1.6" stroke-dasharray="3 7"/>
+    <path d="M356 150 L 368 156 L 362 143" stroke="#ffffff" stroke-opacity=".8" stroke-width="1.6" stroke-linejoin="round"/>
+  </g>
+  <text x="300" y="320" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', Helvetica, sans-serif" font-size="13" fill="#a1a1a6">Drag <tspan fill="#ffffff" font-weight="600">Margin</tspan> into <tspan fill="#ffffff" font-weight="600">Applications</tspan></text>
+</svg>

@@ -1,6 +1,7 @@
 import AppKit
 import Sparkle
 import MarginCore
+import MarginKit
 
 /// Margin's side of Sparkle. Sparkle finds, verifies, downloads and installs updates; this class
 /// is its "user driver": instead of Sparkle's own windows, every callback is reduced to an
@@ -45,7 +46,10 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
 
     /// Starts Sparkle. Does nothing when Margin runs unbundled (`swift run`), where there is no
     /// Info.plist feed and nothing to replace.
+    private static let pendingKey = "margin.pendingUpdate"
+
     func start() {
+        announceIfUpdated()
         let bundle = Bundle.main
         guard bundle.bundleURL.pathExtension == "app",
               bundle.object(forInfoDictionaryKey: "SUFeedURL") != nil else { return }
@@ -56,6 +60,21 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         } catch {
             NSLog("Margin: updater did not start: %@", error.localizedDescription)
         }
+    }
+
+    /// After the relaunch into the version that was waiting: say so once, with its notes.
+    private func announceIfUpdated() {
+        let d = UserDefaults.standard
+        guard let pending = PendingUpdate.decode(d.data(forKey: Self.pendingKey)) else {
+            d.removeObject(forKey: Self.pendingKey)   // unreadable: never show it
+            return
+        }
+        d.removeObject(forKey: Self.pendingKey)
+        // Not this version (not installed, or something newer arrived another way): forget it.
+        // If the download is still waiting, Sparkle reports it ready again and it is stored again.
+        guard pending.version == currentVersion else { return }
+        set(.installed(pending.info))
+        Sounds.play(.installed)
     }
 
     // MARK: What the app calls
@@ -143,6 +162,10 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         guard new != phase || cardDismissed else { return }
         dismissTimer?.invalidate()
         dismissTimer = nil
+        // Remember a downloaded update so the relaunched version can announce it.
+        if case .ready(let i) = new, let data = PendingUpdate(i).encoded() {
+            UserDefaults.standard.set(data, forKey: Self.pendingKey)
+        }
         phase = new
         cardDismissed = false
         if case .downloading = new {} else { NSLog("Margin updater: %@", String(describing: new).components(separatedBy: "(").first ?? "") }
@@ -298,7 +321,7 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         case .ready:
             // Still installs on quit. Keep the card only if we can still act on it.
             if installNow == nil { cardDismissed = true; onChange?() }
-        case .idle, .upToDate, .failed:
+        case .idle, .upToDate, .failed, .installed:
             break
         }
     }

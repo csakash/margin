@@ -33,6 +33,17 @@ public final class PanelController: NSObject, NSWindowDelegate {
     /// Bumped on every minimise/expand so stale animation callbacks can bail out.
     private var stateGeneration = 0
     private weak var savedResponder: NSResponder?
+    /// Set while the tour holds the panel in the middle of the screen; any anchor or minimise
+    /// change ends it.
+    private var centredSize: NSSize?
+    /// How many app-driven frame animations are in flight. AppKit reports animated frame changes
+    /// as a live resize; those must not be saved as the user's size or re-snapped. A counter, not a
+    /// flag: one morph can supersede another, and the first one's completion must not clear it.
+    private var morphs = 0
+    /// While set, a live resize is never saved as the user's size (the tour uses its own size).
+    public var sizeLocked = false
+    /// True during the tour's arrival (line, then open). Anchor and minimise requests wait.
+    public private(set) var isArriving = false
 
     public init(contentView: NSView) {
         let d = UserDefaults.standard
@@ -90,7 +101,8 @@ public final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - Minimise morph
 
     public func setMinimised(_ minimised: Bool, animated: Bool = true) {
-        guard minimised != isMinimised else { return }
+        guard minimised != isMinimised, !isArriving else { return }
+        centredSize = nil
         isMinimised = minimised
         stateGeneration += 1
         let gen = stateGeneration
@@ -172,9 +184,62 @@ public final class PanelController: NSObject, NSWindowDelegate {
 
     public func toggleMinimised() { setMinimised(!isMinimised) }
 
+    // MARK: - First-launch tour
+
+    /// The first-launch arrival: a line of light appears in the middle of the screen and opens
+    /// into a centred panel of `size`. The anchor is untouched; the next `setAnchor` moves it there.
+    public func arriveCentered(size: NSSize, completion: @escaping () -> Void) {
+        stateGeneration += 1
+        let gen = stateGeneration
+        isMinimised = false
+        removeNubHit()
+        centredSize = size
+        isArriving = true
+        let v = visibleFrame
+        let target = centredFrame(size)
+        let line = NSRect(x: (v.midX - Theme.nubThin / 2).rounded(), y: (v.midY - Theme.nubLong / 2).rounded(),
+                          width: Theme.nubThin, height: Theme.nubLong)
+        let reduce = Theme.reduceMotion
+
+        applyStyle(minimised: true)
+        pinContent(size: target.size)
+        glass?.anchor = .right          // a vertical line
+        glass?.isMinimised = true
+        panel.setFrame(reduce ? target : line, display: true)
+        panel.orderFrontRegardless()
+
+        let open = { [self] in
+            guard gen == stateGeneration else { isArriving = false; return }
+            glass?.isMinimised = false
+            glass?.anchor = anchor
+            let landed = { [self] in
+                isArriving = false
+                guard gen == stateGeneration else { return }
+                applyStyle(minimised: false)
+                fillContent()
+                finishMorph()
+                panel.makeKey()
+                completion()
+            }
+            if reduce {
+                panel.setFrame(target, display: true)
+                landed()
+            } else {
+                morph(to: target) { landed() }
+            }
+        }
+        if reduce {
+            open()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { MainActor.assumeIsolated { open() } }
+        }
+    }
+
     // MARK: - Anchors
 
     public func setAnchor(_ anchor: Anchor, animated: Bool = true) {
+        guard !isArriving else { return }
+        centredSize = nil
         self.anchor = anchor
         UserDefaults.standard.set(anchor.rawValue, forKey: "margin.anchor")
         glass?.anchor = anchor
@@ -258,7 +323,7 @@ public final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     public func windowDidEndLiveResize(_ notification: Notification) {
-        guard !isMinimised else { return }
+        guard !isMinimised, morphs == 0, centredSize == nil, !sizeLocked else { return }
         expandedSize = panel.frame.size
         let d = UserDefaults.standard
         d.set(Double(expandedSize.width), forKey: "margin.width")
@@ -269,8 +334,14 @@ public final class PanelController: NSObject, NSWindowDelegate {
 
     // MARK: - System notifications
 
+    private func centredFrame(_ size: NSSize) -> NSRect {
+        let v = visibleFrame
+        let w = min(size.width, v.width - 2 * Theme.panelMargin), h = min(size.height, v.height - 2 * Theme.panelMargin)
+        return NSRect(x: (v.midX - w / 2).rounded(), y: (v.midY - h / 2).rounded(), width: w, height: h)
+    }
+
     @objc private func screenParametersChanged(_ note: Notification) {
-        panel.setFrame(targetFrame(), display: true)
+        panel.setFrame(centredSize.map(centredFrame) ?? targetFrame(), display: true)
         panel.invalidateShadow()
     }
 
@@ -282,13 +353,18 @@ public final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - Helpers
 
     private func morph(to frame: NSRect, completion: @escaping () -> Void) {
+        morphs += 1
         NSAnimationContext.runAnimationGroup({ [panel] ctx in
             ctx.duration = Theme.morphDuration
             ctx.timingFunction = Theme.spring
             ctx.allowsImplicitAnimation = true
             panel.animator().setFrame(frame, display: true)
-        }, completionHandler: {
-            MainActor.assumeIsolated { completion() }
+        }, completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                completion()
+                // Cleared a turn later: the end-of-live-resize callback can arrive after completion.
+                DispatchQueue.main.async { if let self { self.morphs = max(0, self.morphs - 1) } }
+            }
         })
     }
 

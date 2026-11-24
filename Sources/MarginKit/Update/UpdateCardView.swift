@@ -162,6 +162,8 @@ public final class UpdateCardView: NSView {
             title = "You're up to date"; body = "Margin \(v)"
         case .failed(let message):
             title = "Couldn't check for updates"; body = message; secondaryTitle = "Dismiss"
+        case .installed(let i):
+            title = "You're on Margin \(i.version)"; body = bullets(i)
         }
 
         // Everything from the feed is shown as plain text: stringValue, never attributed HTML.

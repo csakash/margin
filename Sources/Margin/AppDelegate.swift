@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var dragPlacement: DragPlacement!
     private let media = MediaHandler()
     private let updates = UpdaterController()
+    private var tour: OnboardingController!
     private var statusItem: NSStatusItem?
     private var currentID: NoteID?
     private var refreshScheduled = false
@@ -23,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // MARK: Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Read before anything below saves a note or a position, which would count as "used before".
+        let firstRun = !OnboardingController.hasRun || Override.value("MARGIN_ONBOARDING") == "1"
         buildMainMenu()
         // MARGIN_NOTES_DIR lets tests and demos use a scratch folder instead of ~/Documents/Margin.
         let folder = Override.value("MARGIN_NOTES_DIR").map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -53,8 +56,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         openInitialNote()
         refreshNow()
         main.status.alphaValue = 0   // only shown while saving
-        panel.show()
-        editor.focus()
+        tour = OnboardingController(panel: panel, mainView: main)
+        tour.onFinish = { [weak self] in self?.editor.focus() }
+        dragPlacement.onPlaced = { [weak self] _ in self?.tour.didPlace() }
+        if firstRun {
+            tour.start()          // first launch: the welcome tour opens the panel itself
+        } else {
+            panel.show()
+            editor.focus()
+        }
         wireUpdates()
     }
 
@@ -88,6 +98,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     private func newNote() {
+        // ⌥N, ⌘N or the menu during the tour: end the tour first, then make the note.
+        if tour?.isBusy == true {
+            tour.endNow { [weak self] in self?.newNote() }
+            return
+        }
         if panel.isMinimised { panel.setMinimised(false) }
         let id = store.create(initialText: "# ")
         drawer.setOpen(false)
@@ -202,6 +217,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private func wirePanel() {
         panel.onStateChange = { [weak self] in
             guard let self else { return }
+            if tour?.isActive == true {
+                // The tour owns focus and the keyboard while it runs.
+                tour.panelStateChanged()
+                return
+            }
             if panel.isMinimised {
                 drawer.setOpen(false, animated: false)
                 // No caret while minimised: its blink animation is the only thing that would wake us.
@@ -216,7 +236,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     private func registerHotkeys() {
         let hk = HotkeyCenter.shared
-        hk.register(.optionSpace) { [weak self] in self?.panel.toggleMinimised() }
+        hk.register(.optionSpace) { [weak self] in
+            guard let self else { return }
+            if self.tour?.isActive == true { self.tour.foldKeyPressed() } else { self.panel.toggleMinimised() }
+        }
         hk.register(.optionN) { [weak self] in self?.newNote() }
         hk.registerArrowNudges { [weak self] dx, dy in self?.panel.nudge(dx: dx, dy: dy) }
     }
@@ -334,6 +357,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     @objc private func toggleAutomaticUpdates() { updates.automaticChecks.toggle() }
+    @objc private func toggleSounds() { Sounds.isEnabled.toggle() }
+    @objc private func showTour() { tour.start() }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.action {
@@ -347,6 +372,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(toggleAutomaticUpdates):
             item.state = updates.automaticChecks ? .on : .off
             return updates.isAvailable
+        case #selector(toggleSounds):
+            item.state = Sounds.isEnabled ? .on : .off
+            return true
+        case #selector(showTour):
+            return !tour.isBusy
         default:
             return true
         }
@@ -383,6 +413,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Check for Updates Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Sounds", action: #selector(toggleSounds), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Margin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
@@ -403,6 +434,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         app.addItem(withTitle: "About Margin", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         app.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "").target = self
         app.addItem(withTitle: "Check for Updates Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "").target = self
+        app.addItem(withTitle: "Show Welcome Tour", action: #selector(showTour), keyEquivalent: "").target = self
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Margin", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(withTitle: "Quit Margin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")

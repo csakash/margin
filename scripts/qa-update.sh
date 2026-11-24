@@ -81,6 +81,7 @@ defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
 # after the update still uses the scratch notes folder and the local feed.
 defaults write "$BUNDLE_ID" MARGIN_NOTES_DIR "$PWD/$QA/notes"
 defaults write "$BUNDLE_ID" MARGIN_FEED_URL "http://127.0.0.1:$PORT/appcast.xml"
+defaults write "$BUNDLE_ID" margin.onboarded -bool true   # the update test is not about the first-launch tour
 
 echo "== building the OLD app ($OLD) =="
 cp "releases/$OLD.md" "$QA/releases/$OLD.md"
