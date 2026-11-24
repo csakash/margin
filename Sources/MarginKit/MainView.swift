@@ -13,6 +13,9 @@ public final class MainView: NSView {
     public let drawer: DrawerController
     /// In-panel update notice; zero height unless an update phase is showing.
     public let updateCard = UpdateCardView()
+    /// Plain notices (Screen Recording), stacked above the update card.
+    public let noticeCard = UpdateCardView()
+    private var cardHeights: (notice: CGFloat, update: CGFloat) = (0, 0)
     private let fade = GradientView()
 
     // Bottom-anchored scrolling: how far the visible bottom is from the document end.
@@ -24,7 +27,7 @@ public final class MainView: NSView {
         self.drawer = drawer
         super.init(frame: .zero)
         let scroll = editor.scrollView
-        for v in [scroll, fade, header, updateCard, toolbar, status, drawer.view] as [NSView] {
+        for v in [scroll, fade, header, noticeCard, updateCard, toolbar, status, drawer.view] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -50,7 +53,10 @@ public final class MainView: NSView {
             scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: updateCard.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: noticeCard.topAnchor),
+            noticeCard.leadingAnchor.constraint(equalTo: leadingAnchor),
+            noticeCard.trailingAnchor.constraint(equalTo: trailingAnchor),
+            noticeCard.bottomAnchor.constraint(equalTo: updateCard.topAnchor),
             // The note never collapses to nothing; the card (lower priority) and drawer give way first.
             scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 24),
 
@@ -61,11 +67,11 @@ public final class MainView: NSView {
 
             fade.leadingAnchor.constraint(equalTo: leadingAnchor),
             fade.trailingAnchor.constraint(equalTo: trailingAnchor),
-            fade.bottomAnchor.constraint(equalTo: updateCard.topAnchor),
+            fade.bottomAnchor.constraint(equalTo: noticeCard.topAnchor),
             fade.heightAnchor.constraint(equalToConstant: 44),
 
             status.centerXAnchor.constraint(equalTo: centerXAnchor),
-            status.bottomAnchor.constraint(equalTo: updateCard.topAnchor, constant: -6),
+            status.bottomAnchor.constraint(equalTo: noticeCard.topAnchor, constant: -6),
         ])
 
         // Keep the line you're writing in view while the drawer pushes the editor up.
@@ -78,9 +84,16 @@ public final class MainView: NSView {
         toolbar.pan.action = #selector(toolbarPan(_:))
 
         // The card and the drawer both push the note up; an open drawer shrinks to make room.
+        noticeCard.onTargetHeightChange = { [weak self] h, animated in
+            guard let self else { return }
+            self.cardHeights.notice = h
+            self.drawer.reservedHeight = self.cardHeights.notice + self.cardHeights.update
+            DispatchQueue.main.async { [weak self] in self?.drawer.refit(animated: animated) }
+        }
         updateCard.onTargetHeightChange = { [weak self] h, animated in
             guard let self else { return }
-            self.drawer.reservedHeight = h
+            self.cardHeights.update = h
+            self.drawer.reservedHeight = self.cardHeights.notice + self.cardHeights.update
             // May be reported from inside a layout pass; change the drawer after it.
             DispatchQueue.main.async { [weak self] in self?.drawer.refit(animated: animated) }
         }
