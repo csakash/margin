@@ -236,10 +236,23 @@ public final class DrawerController: NSObject {
 
     private var fullHeight: NSLayoutConstraint!
 
-    /// Maximum open height, given the panel height.
+    /// Height taken below the note by something else (the update card). The drawer gives way.
+    public var reservedHeight: CGFloat = 0
+
+    /// Maximum open height, given the panel height and what else needs room under the note.
     public var maxHeight: CGFloat {
         let panelH = view.window?.frame.height ?? 600
-        return min(330, max(200, panelH * 0.56)).rounded()
+        let room = panelH - Theme.headerHeight - Theme.toolbarHeight - reservedHeight - Self.minNoteHeight
+        return max(0, min(330, max(200, panelH * 0.56), room)).rounded()
+    }
+
+    /// The note always keeps at least this much height.
+    public static let minNoteHeight: CGFloat = 44
+
+    /// Re-applies the open height after `reservedHeight` or the panel size changed.
+    public func refit(animated: Bool) {
+        guard isOpen, abs(heightConstraint.constant - maxHeight) > 0.5 else { return }
+        setOpen(true, animated: animated)
     }
 
     public func setOpen(_ open: Bool, animated: Bool = true, velocity: CGFloat = 0) {

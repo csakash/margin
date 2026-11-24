@@ -80,6 +80,13 @@ final class UpdateModelTests: XCTestCase {
         XCTAssertFalse(out.joined().contains("<"))
     }
 
+    // protects=a bare "<" or ">" in a plain-text note is kept
+    // fails_when="a < b and c > d" loses the text between the two signs
+    // no_claim=none beyond protects
+    func testBareAngleBracketsAreKept() {
+        XCTAssertEqual(ReleaseNotes.lines(from: "Fixes a < b and c > d"), ["Fixes a < b and c > d"])
+    }
+
     // MARK: UpdatePhase
 
     private let info = UpdateInfo(version: "0.2.1", notes: ["A"])

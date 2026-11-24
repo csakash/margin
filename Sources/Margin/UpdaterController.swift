@@ -31,9 +31,6 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     private var installNow: (() -> Void)?
     /// Pending answer to `showUpdateFound`.
     private var foundReply: ((SPUUserUpdateChoice) -> Void)?
-    /// Pending acknowledgement of an error the card is showing.
-    private var acknowledgeError: (() -> Void)?
-    private var userInitiated = false
     private var installWhenFound = false
     private var expectedBytes: UInt64 = 0
     private var receivedBytes: UInt64 = 0
@@ -96,10 +93,15 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
 
     func restartToUpdate() {
         guard case .ready(let i) = phase else { return }
+        set(.installing(i))   // also makes a second click a no-op
         if let installNow {
-            self.installNow = nil
-            set(.installing(i))
+            // Sparkle allows this block to be called again, so keep it: if the quit is cancelled
+            // (another app or a sheet refuses), offer the restart again instead of a dead spinner.
             installNow()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+                guard let self, self.installNow != nil, self.phase == .installing(i) else { return }
+                self.set(.ready(i))
+            }
         } else if let reply = foundReply {
             foundReply = nil
             reply(.install)
@@ -124,6 +126,8 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
             reply?(.dismiss)   // keeps the download; Sparkle installs it on quit
             cardDismissed = true
             onChange?()
+        case .installing(let i) where installNow != nil:
+            set(.ready(i))
         case .failed:
             set(.idle)
         default:
@@ -134,15 +138,9 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     // MARK: State
 
     private func set(_ new: UpdatePhase) {
+        guard new != phase || cardDismissed else { return }
         dismissTimer?.invalidate()
         dismissTimer = nil
-        // Leaving an error always releases Sparkle's update cycle.
-        if case .failed = phase, new != phase {
-            let ack = acknowledgeError
-            acknowledgeError = nil
-            ack?()
-        }
-        guard new != phase || cardDismissed else { return }
         phase = new
         cardDismissed = false
         if case .downloading = new {} else { NSLog("Margin updater: %@", String(describing: new).components(separatedBy: "(").first ?? "") }
@@ -181,7 +179,6 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     }
 
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
-        userInitiated = false
         installWhenFound = false
     }
 
@@ -193,7 +190,6 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     }
 
     func showUserInitiatedUpdateCheck(cancellation: @escaping () -> Void) {
-        userInitiated = true
         if !installWhenFound { set(.checking) }
     }
 
@@ -201,7 +197,6 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
                          reply: @escaping (SPUUserUpdateChoice) -> Void) {
         let i = describe(appcastItem)
         info = i
-        if state.userInitiated { userInitiated = true }
         guard !appcastItem.isInformationOnlyUpdate else {
             reply(.dismiss)
             set(.idle)
@@ -236,17 +231,15 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         set(.upToDate(currentVersion))
     }
 
+    /// Sparkle only calls this when the user knew an update was in progress (a manual check, or
+    /// after clicking the card). A failed background check never reaches here; it retries tomorrow.
     func showUpdaterError(_ error: Error, acknowledgement: @escaping () -> Void) {
+        // Acknowledge at once: the card is not modal, and an unanswered error would keep Sparkle's
+        // update cycle open, stopping scheduled checks until the next launch.
+        acknowledgement()
         installWhenFound = false
-        // A failed background check stays silent; it will try again tomorrow.
-        guard userInitiated else {
-            acknowledgement()
-            if case .ready = phase {} else { set(.idle) }
-            return
-        }
         let line = error.localizedDescription.components(separatedBy: .newlines).first ?? "Unknown error"
         set(.failed(line))
-        acknowledgeError = acknowledgement   // released when the card is dismissed or replaced
     }
 
     func showDownloadInitiated(cancellation: @escaping () -> Void) {
@@ -262,7 +255,9 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     func showDownloadDidReceiveData(ofLength length: UInt64) {
         receivedBytes += length
         guard let info, expectedBytes > 0 else { return }
-        set(.downloading(info, min(1, Double(receivedBytes) / Double(expectedBytes))))
+        // Whole percents only: a chunk that does not move the number does not redraw the card.
+        let percent = min(100, Int(Double(receivedBytes) / Double(expectedBytes) * 100))
+        set(.downloading(info, Double(percent) / 100))
     }
 
     func showDownloadDidStartExtractingUpdate() {

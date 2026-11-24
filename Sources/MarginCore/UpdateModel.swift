@@ -57,7 +57,8 @@ public enum ReleaseNotes {
         // Block-level tags become line breaks, every other tag disappears.
         s = s.replacingOccurrences(of: "<\\s*/?\\s*(li|br|p|div|ul|ol|h[1-6])\\b[^>]*>", with: "\n",
                                    options: [.regularExpression, .caseInsensitive])
-        s = s.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
+        // A tag starts with a letter, "/" or "!"; a bare "<" in prose ("a < b") is kept.
+        s = s.replacingOccurrences(of: "<[/!A-Za-z][^>]*>", with: "", options: .regularExpression)
         // `&amp;` goes last so "&amp;lt;" stays the literal text "&lt;".
         for (entity, char) in [("&nbsp;", " "), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#39;", "'"), ("&amp;", "&")] {
             s = s.replacingOccurrences(of: entity, with: char)

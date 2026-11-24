@@ -6,6 +6,7 @@
 #   VERSION        version to stamp (default below)
 #   BUNDLE_ID      bundle identifier (default app.margin.notes)
 #   QA_LOCAL_FEED  1 = allow a plain-http update feed on this Mac, for scripts/qa-update.sh
+#   OUT_DIR        where the app is assembled (default dist); QA builds use their own folder
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -15,7 +16,8 @@ BUNDLE_ID="${BUNDLE_ID:-app.margin.notes}"
 # (see "Releasing" in README.md). Sparkle refuses any update not signed with it.
 SU_PUBLIC_KEY="bMkyLV6EQgTbkBFqyOhHUDu1nAId30iU+/f8N0BGzOo="
 SU_FEED_URL="https://margin.motiontic.com/appcast.xml"
-APP="dist/Margin.app"
+OUT_DIR="${OUT_DIR:-dist}"
+APP="$OUT_DIR/Margin.app"
 WORK="build/icon"
 
 echo "→ swift build -c release"
@@ -27,7 +29,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Framewor
 cp .build/release/Margin "$APP/Contents/MacOS/Margin"
 
 echo "→ embedding Sparkle"
-SPARKLE=$(ls -d .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-*/Sparkle.framework 2>/dev/null | head -1)
+SPARKLE=$(ls -d .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-*/Sparkle.framework 2>/dev/null | head -1 || true)
 [[ -d "$SPARKLE" ]] || { echo "✗ Sparkle.framework not found under .build/artifacts"; exit 1; }
 FW="$APP/Contents/Frameworks/Sparkle.framework"
 ditto "$SPARKLE" "$FW"   # keeps the framework's symlinks and permissions
@@ -87,7 +89,7 @@ ${QA_ATS}
 PLIST
 
 echo "→ ad-hoc signing"
-scripts/sign.sh -
+OUT_DIR="$OUT_DIR" scripts/sign.sh -
 
 echo "✓ $APP"
 if [[ "${1:-}" == "--open" ]]; then open "$APP"; fi

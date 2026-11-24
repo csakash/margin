@@ -13,6 +13,8 @@ public final class UpdateCardView: NSView {
     public var onDismiss: (() -> Void)?
 
     public private(set) var phase: UpdatePhase = .idle
+    /// Reports the height the card wants (0 when hidden) and whether the change is animated.
+    public var onTargetHeightChange: ((CGFloat, Bool) -> Void)?
 
     private static let padX: CGFloat = 18
     private static let padTop: CGFloat = 14
@@ -40,6 +42,7 @@ public final class UpdateCardView: NSView {
         layer?.masksToBounds = true
         translatesAutoresizingMaskIntoConstraints = false
         height = heightAnchor.constraint(equalToConstant: 0)
+        height.priority = NSLayoutConstraint.Priority(900)   // in a very short panel the card clips, the layout never breaks
         height.isActive = true
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -55,7 +58,8 @@ public final class UpdateCardView: NSView {
         bodyLabel.font = Theme.ui(12)
         bodyLabel.textColor = Theme.textSecondary
         bodyLabel.isSelectable = false
-        bodyLabel.maximumNumberOfLines = 0
+        bodyLabel.maximumNumberOfLines = 6   // bounds the card's height however long the notes are
+        bodyLabel.cell?.truncatesLastVisibleLine = true
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -117,8 +121,19 @@ public final class UpdateCardView: NSView {
         let old = phase
         phase = newPhase
         if newPhase.showsCard { render(newPhase) }   // keep the old content on screen while collapsing
-        setHeight(newPhase.showsCard ? fittingHeight() : 0, animated: animated)
-        if case .ready = newPhase, old != newPhase { playShine() }
+        let target = newPhase.showsCard ? fittingHeight() : 0
+        setHeight(target, animated: animated)
+        if case .ready = newPhase, old != newPhase { playShine(cardHeight: target) }
+        if !newPhase.showsCard {
+            // Once collapsed, nothing may keep animating or stay reachable inside a zero-height card.
+            let moving = animated && !Theme.reduceMotion && window != nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + (moving ? 0.45 : 0)) { [weak self] in
+                guard let self, !self.phase.showsCard else { return }
+                self.spinner.isSpinning = false
+                self.spinner.isHidden = true
+                self.actionRow.isHidden = true
+            }
+        }
     }
 
     private func render(_ p: UpdatePhase) {
@@ -173,13 +188,16 @@ public final class UpdateCardView: NSView {
     // MARK: Height
 
     private func fittingHeight() -> CGFloat {
+        measuredWidth = bounds.width
         let w = max(bounds.width - 2 * Self.padX, 120)
         bodyLabel.preferredMaxLayoutWidth = w
         return ceil(stack.fittingSize.height) + Self.padTop + Self.padBottom
     }
 
     private func setHeight(_ h: CGFloat, animated: Bool) {
-        guard abs(height.constant - h) > 0.5 else { return }
+        guard abs(targetHeight - h) > 0.5 else { return }
+        targetHeight = h
+        onTargetHeightChange?(h, animated)
         if animated, !Theme.reduceMotion, window != nil {
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.42
@@ -193,20 +211,21 @@ public final class UpdateCardView: NSView {
         }
     }
 
+    /// The height last asked for (the constraint itself may be mid-animation).
+    private var targetHeight: CGFloat = 0
+
     /// Wrapped note lines change height with the panel's width.
     public override func layout() {
         super.layout()
         guard phase.showsCard, abs(bounds.width - measuredWidth) > 0.5 else { return }
-        measuredWidth = bounds.width
-        let h = fittingHeight()
-        if abs(height.constant - h) > 0.5 { height.constant = h }
+        setHeight(fittingHeight(), animated: false)
     }
 
     // MARK: Shine
 
-    private func playShine() {
+    private func playShine(cardHeight: CGFloat) {
         guard !Theme.reduceMotion, bounds.width > 0 else { return }
-        let h = max(height.constant, 60)
+        let h = max(cardHeight, 60)
         let band = bounds.width * 0.38
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -219,8 +238,16 @@ public final class UpdateCardView: NSView {
         a.toValue = bounds.width + band
         a.duration = 0.9
         a.timingFunction = Theme.easeOut
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self?.shine.opacity = 0   // never leave the band parked where a wider panel would reveal it
+            CATransaction.commit()
+        }
         shine.position.x = bounds.width + band
         shine.add(a, forKey: "shine")
+        CATransaction.commit()
     }
 
     // MARK: Actions

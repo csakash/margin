@@ -51,6 +51,8 @@ public final class MainView: NSView {
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: updateCard.topAnchor),
+            // The note never collapses to nothing; the card (lower priority) and drawer give way first.
+            scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 24),
 
             // The update card sits between the note and the toolbar and pushes the note up.
             updateCard.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -74,6 +76,14 @@ public final class MainView: NSView {
 
         toolbar.pan.target = self
         toolbar.pan.action = #selector(toolbarPan(_:))
+
+        // The card and the drawer both push the note up; an open drawer shrinks to make room.
+        updateCard.onTargetHeightChange = { [weak self] h, animated in
+            guard let self else { return }
+            self.drawer.reservedHeight = h
+            // May be reported from inside a layout pass; change the drawer after it.
+            DispatchQueue.main.async { [weak self] in self?.drawer.refit(animated: animated) }
+        }
     }
 
     public required init?(coder: NSCoder) { fatalError() }
