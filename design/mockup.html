@@ -340,6 +340,54 @@ pre.code{font:12.5px/1.6 var(--mono);background:#000;border:1px solid var(--line
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:.01ms!important;animation:none!important}
 }
+
+/* ---------- update card (Sparkle, drawn by Margin) ---------- */
+.upd{position:relative;z-index:3;flex:none;height:0;overflow:hidden;transition:height .42s var(--spring)}
+.upd .in{position:relative;padding:14px 18px 15px;background:rgba(255,255,255,.04);overflow:hidden}
+.upd .in::before{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
+.upd .in::after{content:"";position:absolute;top:-20%;bottom:-20%;left:0;width:38%;pointer-events:none;opacity:0;transform:translateX(-140%) skewX(-18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.10),transparent)}
+.upd.shine .in::after{animation:ushine .9s var(--out)}
+@keyframes ushine{0%{opacity:1;transform:translateX(-140%) skewX(-18deg)}100%{opacity:1;transform:translateX(320%) skewX(-18deg)}}
+.upd .uh{display:flex;align-items:baseline;gap:10px}
+.upd .uh b{font-size:13px;font-weight:600;color:var(--tx);letter-spacing:-.005em}
+.upd .uh span{margin-left:auto;font:500 10.5px var(--mono);color:var(--tx3);white-space:nowrap}
+.upd .ub{font-size:12px;line-height:1.5;color:var(--tx2);margin-top:5px}
+.upd ul.ub{list-style:none;padding:0;margin:6px 0 0}
+.upd ul.ub li{position:relative;padding-left:13px}
+.upd ul.ub li::before{content:"";position:absolute;left:2px;top:.62em;width:4px;height:4px;border-radius:50%;background:var(--tx3)}
+.upd .ua{display:flex;align-items:center;gap:6px;margin-top:12px}
+.ubtn{height:30px;padding:0 14px;border-radius:99px;font-size:12.5px;font-weight:600;color:#000;background:#fff;
+  box-shadow:0 0 0 1px rgba(255,255,255,.5),0 0 18px rgba(255,255,255,.28),inset 0 -1px 0 rgba(0,0,0,.12);transition:transform .12s var(--out),box-shadow .2s}
+.ubtn:active{transform:scale(.96)}
+@media (hover:hover){.ubtn:hover{box-shadow:0 0 0 1px #fff,0 0 26px rgba(255,255,255,.42),inset 0 -1px 0 rgba(0,0,0,.12)}}
+.ulater{height:30px;padding:0 12px;border-radius:99px;font-size:12.5px;color:var(--tx2);transition:color .15s,background .15s}
+@media (hover:hover){.ulater:hover{color:var(--tx);background:rgba(255,255,255,.06)}}
+.ubar{height:2px;border-radius:2px;background:rgba(255,255,255,.09);margin-top:11px;overflow:hidden}
+.ubar i{display:block;height:100%;width:0;background:#fff;box-shadow:var(--glow);transition:width .25s linear}
+.uspin{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(255,255,255,.2);border-top-color:#fff;margin-right:8px;vertical-align:-1px;animation:uspin .8s linear infinite}
+@keyframes uspin{to{transform:rotate(360deg)}}
+.panel.uopen .status{opacity:0}
+.panel>.upd{transition:height .42s var(--spring),opacity .28s var(--out) .14s}
+.panel.min>.upd{opacity:0;pointer-events:none;transition:opacity .1s}
+/* nub: an update is waiting */
+.nubdot{position:absolute;z-index:7;width:6px;height:6px;border-radius:50%;background:#fff;opacity:0;pointer-events:none;box-shadow:0 0 8px 2px rgba(255,255,255,.75)}
+.panel.min.hasupd .nubdot{opacity:.9;animation:updot 1.6s ease-in-out infinite alternate}
+.panel.min[data-anchor=l] .nubdot,.panel.min[data-anchor=r] .nubdot{left:50%;top:11px;transform:translateX(-50%)}
+.panel.min[data-anchor=t] .nubdot,.panel.min[data-anchor=b] .nubdot{top:50%;right:11px;transform:translateY(-50%)}
+.panel.min[data-anchor=tl] .nubdot,.panel.min[data-anchor=tr] .nubdot,.panel.min[data-anchor=bl] .nubdot,.panel.min[data-anchor=br] .nubdot{display:none}
+.panel.min.hasupd[data-anchor=tl] .nubline,.panel.min.hasupd[data-anchor=tr] .nubline,.panel.min.hasupd[data-anchor=bl] .nubline,.panel.min.hasupd[data-anchor=br] .nubline{animation:updot 1.6s ease-in-out infinite alternate;box-shadow:0 0 8px 3px rgba(255,255,255,.8)}
+@keyframes updot{from{opacity:.45}to{opacity:1}}
+.panel.relaunch{opacity:0!important;transform:scale(.97);filter:blur(6px)}
+/* demo controls for the update states */
+.updemo{position:absolute;left:16px;top:52px;z-index:11;display:flex;flex-direction:column;gap:4px;padding:9px;border-radius:14px;width:176px;
+  background:rgba(12,12,13,.82);border:1px solid var(--line);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 12px 32px rgba(0,0,0,.6)}
+.updemo small{font:500 10px var(--mono);color:var(--tx3);letter-spacing:.06em;padding:1px 4px 4px}
+.updemo button{text-align:left;font-size:12px;color:var(--tx2);padding:6px 8px;border-radius:8px;transition:color .15s,background .15s}
+.updemo button[aria-pressed=true]{color:var(--tx);background:rgba(255,255,255,.08)}
+@media (hover:hover){.updemo button:hover{color:var(--tx);background:rgba(255,255,255,.06)}}
+@media (max-width:720px){.updemo{left:8px;right:8px;top:auto;bottom:86px;width:auto;flex-direction:row;flex-wrap:wrap}.updemo small{width:100%}}
+@media (prefers-reduced-motion:reduce){.panel.min.hasupd .nubdot{opacity:.9}}
 </style>
 </head>
 <body>
@@ -358,6 +406,14 @@ pre.code{font:12.5px/1.6 var(--mono);background:#000;border:1px solid var(--line
 <section class="view on" id="v-mock">
   <div class="stage" id="stage">
     <div class="flag"><span>SIMULATED · Chrome in a full-screen Space — Margin floats above it</span><button id="bTips" aria-controls="tips">How to try</button></div>
+    <div class="updemo" id="updemo" aria-label="Update demo">
+      <small>UPDATE DEMO · 0.2.0</small>
+      <button data-u="bg">Background update arrives</button>
+      <button data-u="manual">Check: update found</button>
+      <button data-u="none">Check: up to date</button>
+      <button data-u="fail">Check: offline</button>
+      <button data-u="clear">Clear</button>
+    </div>
     <article class="article" id="article">
       <div class="kick">Essay · 9 min read</div>
       <h1>The quiet power of writing in the margins</h1>
@@ -413,6 +469,8 @@ pre.code{font:12.5px/1.6 var(--mono);background:#000;border:1px solid var(--line
         <div class="menu" id="menu"></div>
       </div>
 
+      <div class="upd" id="upd" aria-live="polite"><div class="in" id="updIn"></div></div>
+
       <div class="foot" id="foot">
         <div class="status" id="status"><i></i>Saved · local</div>
         <button class="ib" data-cmd="h1" data-tip="Heading" aria-label="Heading"><svg viewBox="0 0 24 24"><path d="M5 5v14M14 5v14M5 12h9M18 10l2-1v10"/></svg></button>
@@ -443,7 +501,7 @@ pre.code{font:12.5px/1.6 var(--mono);background:#000;border:1px solid var(--line
         </div>
       </div>
 
-      <div class="nubline"></div><div class="rim"></div><div class="sheen"></div>
+      <div class="nubline"></div><div class="nubdot"></div><div class="rim"></div><div class="sheen"></div>
       <div class="grip" id="grip"></div>
       <input type="file" id="file" accept="image/*,video/*" multiple hidden>
     </div>
@@ -1056,6 +1114,52 @@ addEventListener('resize',()=>{panel.classList.add('resizing');layout();requestA
 open(cur,false);renderCards(false);
 panel.classList.add('resizing');layout();
 requestAnimationFrame(()=>requestAnimationFrame(()=>{panel.classList.remove('resizing','boot');setTimeout(glint,380)}));
+
+/* ---------- update card: every state Sparkle reports, drawn by Margin ---------- */
+(function(){
+const upd=$('#upd'),updIn=$('#updIn'),NEW='0.2.1',CUR='0.2.0';
+const NOTES=['Margin now updates itself quietly in the background','Faster search across large note folders','Fixed the caret jumping after pasting a link'];
+let phase='idle',timers=[];
+const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
+const stop=()=>{timers.forEach(clearTimeout);timers=[]};
+const size=()=>{upd.style.height=(phase==='idle'?0:updIn.offsetHeight)+'px'};
+const notes=()=>'<ul class="ub">'+NOTES.map(n=>'<li>'+n+'</li>').join('')+'</ul>';
+const head=(t,r)=>'<div class="uh"><b>'+t+'</b>'+(r?'<span>'+r+'</span>':'')+'</div>';
+const VIEWS={
+ checking:()=>head('<i class="uspin"></i>Checking for updates…'),
+ available:()=>head('Margin '+NEW+' is available',CUR+' → '+NEW)+notes()+'<div class="ua"><button class="ubtn" data-a="download">Update now</button><button class="ulater" data-a="later">Later</button></div>',
+ downloading:()=>head('Downloading Margin '+NEW,'<em id="upct" style="font-style:normal">0%</em>')+'<div class="ubar"><i id="ubar"></i></div>',
+ ready:()=>head('Margin '+NEW+' is ready',CUR+' → '+NEW)+notes()+'<div class="ua"><button class="ubtn" data-a="restart">Restart to update</button><button class="ulater" data-a="later">Later</button></div>',
+ installing:()=>head('<i class="uspin"></i>Installing Margin '+NEW+'…'),
+ upToDate:()=>head("You're up to date")+'<div class="ub">Margin '+CUR+'</div>',
+ failed:()=>head("Couldn't check for updates")+'<div class="ub">The update server could not be reached. Margin will try again tomorrow.</div><div class="ua"><button class="ulater" data-a="dismiss" style="margin-left:-12px">Dismiss</button></div>'
+};
+function set(p){phase=p;
+ if(p!=='idle')updIn.innerHTML=VIEWS[p]();
+ panel.classList.toggle('uopen',p!=='idle');
+ if(p==='ready'){panel.classList.add('hasupd');if(!RM){upd.classList.remove('shine');void upd.offsetWidth;upd.classList.add('shine')}}
+ size()}
+function mark(k){document.querySelectorAll('#updemo button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.u===k))}
+function download(){set('downloading');let f=0;const tick=()=>{f=Math.min(1,f+.07+Math.random()*.09);const b=$('#ubar'),pc=$('#upct');if(b)b.style.width=(f*100)+'%';if(pc)pc.textContent=Math.round(f*100)+'%';
+  if(f<1)later(tick,140);else later(()=>{set('installing');later(relaunch,1100)},350)};later(tick,200)}
+function relaunch(){stop();panel.classList.add('relaunch');
+ later(()=>{set('idle');panel.classList.remove('hasupd');mark('');panel.classList.remove('relaunch');glint();toast('Relaunched · Margin '+NEW)},800)}
+updIn.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(!a)return;const k=a.dataset.a;
+ if(k==='restart'){set('installing');later(relaunch,700)}
+ else if(k==='download')download();
+ else if(k==='later'){const had=phase==='ready';set('idle');toast(had?'Installs when you quit Margin':'Not now · check again from the menu bar')}
+ else if(k==='dismiss')set('idle')});
+$('#updemo').addEventListener('click',e=>{const b=e.target.closest('[data-u]');if(!b)return;const k=b.dataset.u;stop();mark(k);
+ if(k==='clear'){set('idle');panel.classList.remove('hasupd');mark('');return}
+ if(k==='bg'){ /* found and downloaded silently: never expands or steals focus */
+   set('ready');toast(isMin()?'Downloaded in the background · the nub is glowing':'Downloaded in the background');return}
+ /* the other three are "Check for Updates…" from the menu: user asked, so the panel opens */
+ if(isMin())setMin(false);panel.classList.remove('hasupd');set('checking');
+ later(()=>{ if(k==='manual')set('available');
+   else if(k==='none'){set('upToDate');later(()=>{set('idle');mark('')},3000)}
+   else set('failed')},1300)});
+new ResizeObserver(size).observe(updIn);
+})();
 })();
 </script>
 </body>
