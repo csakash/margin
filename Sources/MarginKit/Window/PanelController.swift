@@ -25,6 +25,8 @@ public final class PanelController: NSObject, NSWindowDelegate {
 
     /// `contentView` typed as the glass material, when it is one (it normally is).
     public var glass: GlassView? { contentView as? GlassView }
+    /// An update is downloaded and waiting: the minimised nub shows a pulsing dot.
+    public var hasPendingUpdate = false { didSet { glass?.showsUpdateDot = hasPendingUpdate } }
 
     private let host: NSView
     private let nubHit = NubHitView(frame: .zero)

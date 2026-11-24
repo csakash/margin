@@ -23,6 +23,8 @@ public final class GlassView: NSView {
 
     /// True while the pointer is inside the view.
     public private(set) var isHovered = false
+    /// An update is downloaded and waiting. While minimised the nub shows a slow pulsing dot.
+    public var showsUpdateDot = false { didSet { if showsUpdateDot != oldValue { lookChanged() } } }
 
     // MARK: Views
 
@@ -50,6 +52,8 @@ public final class GlassView: NSView {
     private let sheen = CAGradientLayer()
 
     private let line = CALayer()
+    /// "Update waiting" dot near one end of the minimised nub.
+    private let dot = CALayer()
 
     // MARK: State
 
@@ -187,7 +191,16 @@ public final class GlassView: NSView {
         line.shadowOpacity = 0.9
         line.opacity = 0
 
-        for l in [rimGroup, sheenGroup, line] { overlay.layer?.addSublayer(l) }
+        dot.backgroundColor = NSColor.white.cgColor
+        dot.bounds = CGRect(x: 0, y: 0, width: 6, height: 6)
+        dot.cornerRadius = 3
+        dot.shadowColor = NSColor.white.cgColor
+        dot.shadowOffset = .zero
+        dot.shadowRadius = 4
+        dot.shadowOpacity = 0.75
+        dot.opacity = 0
+
+        for l in [rimGroup, sheenGroup, line, dot] { overlay.layer?.addSublayer(l) }
 
         // Outer glow (minimised hover, orb). Visible only where the window has room around the view.
         layer?.shadowColor = NSColor.white.cgColor
@@ -284,6 +297,8 @@ public final class GlassView: NSView {
         line.bounds = CGRect(origin: .zero, size: size)
         line.cornerRadius = anchor.isCorner ? 2.5 : 1
         line.position = CGPoint(x: b.midX, y: b.midY)
+        // Top end of a vertical nub, right end of a horizontal one (the overlay is flipped).
+        dot.position = anchor.isVerticalEdge ? CGPoint(x: b.midX, y: 11) : CGPoint(x: b.width - 11, y: b.midY)
     }
 
     private var restingHotspot: CGPoint { CGPoint(x: bounds.width / 2, y: -bounds.height * 0.3) }
@@ -376,6 +391,12 @@ public final class GlassView: NSView {
         rimGroup.opacity = isOrb ? 0 : 1
         line.opacity = (isMinimised && !isOrb) ? (isHovered ? 1 : 0.55) : 0
 
+        // Update waiting: edges get a separate dot, corners pulse their own centre dot.
+        let waiting = showsUpdateDot && isMinimised && !isOrb
+        dot.opacity = (waiting && !anchor.isCorner) ? 0.9 : 0
+        pulse(dot, on: waiting && !anchor.isCorner)
+        pulse(line, on: waiting && anchor.isCorner)
+
         if let l = layer {
             if isOrb {
                 l.shadowRadius = 22; l.shadowOpacity = 0.55
@@ -386,6 +407,21 @@ public final class GlassView: NSView {
             }
         }
         CATransaction.commit()
+    }
+
+    /// Slow opacity breathing, run by Core Animation (no timer, no display link).
+    private func pulse(_ l: CALayer, on: Bool) {
+        let key = "margin.updatePulse"
+        guard on, !Theme.reduceMotion else { l.removeAnimation(forKey: key); return }
+        guard l.animation(forKey: key) == nil else { return }
+        let a = CABasicAnimation(keyPath: "opacity")
+        a.fromValue = 0.45
+        a.toValue = 1.0
+        a.duration = 1.6
+        a.autoreverses = true
+        a.repeatCount = .infinity
+        a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        l.add(a, forKey: key)
     }
 
     // MARK: Pointer

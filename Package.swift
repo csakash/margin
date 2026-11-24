@@ -7,6 +7,10 @@ let package = Package(
     products: [
         .executable(name: "Margin", targets: ["Margin"]),
     ],
+    dependencies: [
+        // The one dependency: in-app updates. Only the executable target links it.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    ],
     targets: [
         // Foundation + SQLite only. No AppKit, so it stays unit-testable.
         .target(
@@ -20,7 +24,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "Margin",
-            dependencies: ["MarginKit", "MarginCore"]
+            dependencies: ["MarginKit", "MarginCore", .product(name: "Sparkle", package: "Sparkle")]
         ),
         .testTarget(
             name: "MarginCoreTests",

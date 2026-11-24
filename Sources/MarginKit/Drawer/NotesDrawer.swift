@@ -236,10 +236,38 @@ public final class DrawerController: NSObject {
 
     private var fullHeight: NSLayoutConstraint!
 
-    /// Maximum open height, given the panel height.
+    /// Height taken below the note by something else (the update card). The drawer gives way.
+    public var reservedHeight: CGFloat = 0
+
+    /// Maximum open height, given the panel height and what else needs room under the note.
     public var maxHeight: CGFloat {
         let panelH = view.window?.frame.height ?? 600
-        return min(330, max(200, panelH * 0.56)).rounded()
+        let room = panelH - Theme.headerHeight - Theme.toolbarHeight - reservedHeight - Self.minNoteHeight
+        return max(Self.minOpenHeight, min(330, max(200, panelH * 0.56), room)).rounded()
+    }
+
+    /// The note always keeps at least this much height.
+    public static let minNoteHeight: CGFloat = 44
+    /// An open drawer is never shorter than this (search field + chips); the card compresses instead.
+    public static let minOpenHeight: CGFloat = 80
+
+    /// Re-applies the open height after `reservedHeight` or the panel size changed.
+    /// Only the height moves: no open/close callbacks, no re-run of the entrance animation.
+    public func refit(animated: Bool) {
+        let target = maxHeight
+        guard isOpen, abs(heightConstraint.constant - target) > 0.5 else { return }
+        fullHeight.constant = target
+        if animated && !Theme.reduceMotion {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.42
+                ctx.timingFunction = Theme.spring
+                ctx.allowsImplicitAnimation = true
+                heightConstraint.animator().constant = target
+                view.window?.contentView?.layoutSubtreeIfNeeded()
+            }
+        } else {
+            heightConstraint.constant = target
+        }
     }
 
     public func setOpen(_ open: Bool, animated: Bool = true, velocity: CGFloat = 0) {
@@ -283,6 +311,9 @@ public final class DrawerController: NSObject {
         let max = maxHeight
         var h = dragStartHeight + dy
         if h > max { h = max + rubberband(h - max, dimension: max) }
+        // However far the drag overshoots, the note keeps its minimum height.
+        let panelH = view.window?.frame.height ?? 600
+        h = min(h, panelH - Theme.headerHeight - Theme.toolbarHeight - 24)
         if h < 0 { h = 0 }
         heightConstraint.constant = h
         samples.append((dy, ProcessInfo.processInfo.systemUptime))
