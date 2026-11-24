@@ -47,6 +47,15 @@ public enum UpdatePhase: Equatable, Sendable {
 }
 
 public enum ReleaseNotes {
+    /// A version string from the feed, if it looks like one: up to 20 of `0-9 A-Z a-z . - +`,
+    /// starting with a digit. Anything else is refused, so a feed cannot put a sentence in the
+    /// card title or the menu.
+    public static func safeVersion(_ raw: String?) -> String? {
+        guard let v = raw?.trimmingCharacters(in: .whitespaces),
+              v.range(of: "^[0-9][0-9A-Za-z.+-]{0,19}$", options: .regularExpression) != nil else { return nil }
+        return v
+    }
+
     public static let maxLines = 5
     public static let maxLineLength = 120
 

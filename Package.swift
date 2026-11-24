@@ -9,7 +9,7 @@ let package = Package(
     ],
     dependencies: [
         // The one dependency: in-app updates. Only the executable target links it.
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.1"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
     ],
     targets: [
         // Foundation + SQLite only. No AppKit, so it stays unit-testable.

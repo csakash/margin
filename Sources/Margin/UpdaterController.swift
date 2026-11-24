@@ -35,6 +35,7 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     private var expectedBytes: UInt64 = 0
     private var receivedBytes: UInt64 = 0
     private var dismissTimer: Timer?
+    private var reofferTimer: Timer?
 
     private var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -94,14 +95,17 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     func restartToUpdate() {
         guard case .ready(let i) = phase else { return }
         set(.installing(i))   // also makes a second click a no-op
-        if let installNow {
-            // Sparkle allows this block to be called again, so keep it: if the quit is cancelled
-            // (another app or a sheet refuses), offer the restart again instead of a dead spinner.
-            installNow()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
-                guard let self, self.installNow != nil, self.phase == .installing(i) else { return }
+        // Whatever path is taken, a restart that does not happen (the quit was cancelled, Sparkle
+        // was busy) must not leave a spinner with no buttons: offer it again.
+        reofferTimer?.invalidate()
+        reofferTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.phase == .installing(i) else { return }
                 self.set(.ready(i))
             }
+        }
+        if let installNow {
+            installNow()   // Sparkle allows calling this again, so it is kept until the cycle ends
         } else if let reply = foundReply {
             foundReply = nil
             reply(.install)
@@ -126,8 +130,6 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
             reply?(.dismiss)   // keeps the download; Sparkle installs it on quit
             cardDismissed = true
             onChange?()
-        case .installing(let i) where installNow != nil:
-            set(.ready(i))
         case .failed:
             set(.idle)
         default:
@@ -156,14 +158,16 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     }
 
     private func describe(_ item: SUAppcastItem) -> UpdateInfo {
-        UpdateInfo(version: item.displayVersionString, notes: ReleaseNotes.lines(from: item.itemDescription))
+        // The feed is outside the app: only version-shaped text is shown, and notes are plain lines.
+        let version = ReleaseNotes.safeVersion(item.displayVersionString)
+            ?? ReleaseNotes.safeVersion(item.versionString) ?? "update"
+        return UpdateInfo(version: version, notes: ReleaseNotes.lines(from: item.itemDescription))
     }
 
     // MARK: SPUUpdaterDelegate
 
-    /// QA only: point at a local feed (environment, or the same key in the app's defaults so it
-    /// survives the relaunch after an update). Safe to ship, because Sparkle refuses any archive
-    /// that is not signed with Margin's EdDSA key, whatever feed offered it.
+    /// QA only: point at a local feed. Sparkle refuses any archive that is not signed with the
+    /// app's EdDSA key, whatever feed offered it; see `Override` for who may set this.
     func feedURLString(for updater: SPUUpdater) -> String? {
         guard let url = Override.value("MARGIN_FEED_URL") else { return nil }
         return url
@@ -180,6 +184,7 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
 
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
         installWhenFound = false
+        installNow = nil   // the block belongs to the cycle that just ended; a later click asks Sparkle afresh
     }
 
     // MARK: SPUUserDriver
@@ -299,10 +304,16 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
     }
 }
 
-/// Test and demo overrides: an environment variable, or the same key in the app's defaults.
+/// Test and demo overrides, read from the environment. QA builds (bundle id ending in ".qa",
+/// made by scripts/qa-update.sh) also read them from their own settings, so the copy that
+/// relaunches after an update keeps them. The released app never reads them from settings:
+/// another process must not be able to redirect its feed or notes folder persistently.
 enum Override {
     static func value(_ key: String) -> String? {
-        let v = ProcessInfo.processInfo.environment[key] ?? UserDefaults.standard.string(forKey: key)
+        var v = ProcessInfo.processInfo.environment[key]
+        if v == nil, Bundle.main.bundleIdentifier?.hasSuffix(".qa") == true {
+            v = UserDefaults.standard.string(forKey: key)
+        }
         return (v?.isEmpty ?? true) ? nil : v
     }
 }

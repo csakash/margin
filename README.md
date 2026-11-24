@@ -51,14 +51,14 @@ Notes live in `~/Documents/Margin`: one `.md` file per note, media in `assets/`,
 Updates are signed twice: with the Developer ID certificate (Apple) and with an EdDSA key (Sparkle). The app carries the public half (`SU_PUBLIC_KEY` in `scripts/bundle.sh`) and refuses any update the private half did not sign.
 
 1. Set `VERSION` in `scripts/bundle.sh` and write `releases/<version>.md`: 1 to 5 lines starting with `- `. They appear in the update card.
-2. Run `scripts/release.sh`. It builds, signs, notarizes and staples `dist/Margin-<version>.dmg`, then writes `dist/appcast.xml` with the DMG's signature.
+2. Run `scripts/release.sh` from a clean shell. It builds, signs, notarizes and staples `dist/Margin-<version>.dmg`, then writes `dist/appcast.xml` with the DMG's signature. It writes no feed entry if notarization did not happen, and refuses to run with test settings left in the environment.
 3. Publish: copy the DMG to `download/` and `appcast.xml` to the root of the [site repo](https://github.com/csakash/margin-site), update its download links, and deploy it. Installed copies pick the update up within a day.
 
 To stop a bad release, put the previous `appcast.xml` back on the site. Installed copies only ever move to a higher version, so fixing forward means shipping one.
 
 **The signing key.** The private half lives in the maintainer's login keychain (item "Private key for signing Sparkle updates"). Back it up once with `.build/artifacts/sparkle/Sparkle/bin/generate_keys -x <file>` and keep the file in a password manager; restore it on another Mac with `generate_keys -f <file>`. Never commit it.
 
-**Testing an update without publishing.** `scripts/qa-update.sh` builds a 0.2.0 and a 0.2.1 test app under their own bundle id, serves a feed on 127.0.0.1 and launches the old one. `scripts/qa-update.sh --check-only` asserts the bundle and feed are well-formed; `--tamper` corrupts the download, which must be refused.
+**Testing an update without publishing.** `scripts/qa-update.sh` builds a 0.2.0 and a 0.2.1 test app under their own bundle id in `build/qa` (never `dist/`), serves a feed on 127.0.0.1 and launches the old one. `scripts/qa-update.sh --check-only` asserts the normal bundle and feed are well-formed; `--tamper` corrupts the download, which must be refused. The test app takes keyboard focus when it launches, like the real one, and its DMG is signed with the real keys: stop the run with the command it prints, which also deletes that DMG.
 
 ## Layout
 

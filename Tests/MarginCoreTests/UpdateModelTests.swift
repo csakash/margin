@@ -87,6 +87,20 @@ final class UpdateModelTests: XCTestCase {
         XCTAssertEqual(ReleaseNotes.lines(from: "Fixes a < b and c > d"), ["Fixes a < b and c > d"])
     }
 
+    // protects=only version-shaped text from the feed reaches the card title and the menu
+    // fails_when=a sentence, markup, an over-long or empty string is accepted, or "0.2.1" / "1.0-beta+3" is refused
+    // no_claim=does not prove the driver uses it for every title; that is a code-review point
+    func testSafeVersion() {
+        XCTAssertEqual(ReleaseNotes.safeVersion("0.2.1"), "0.2.1")
+        XCTAssertEqual(ReleaseNotes.safeVersion(" 1.0-beta+3 "), "1.0-beta+3")
+        XCTAssertNil(ReleaseNotes.safeVersion(nil))
+        XCTAssertNil(ReleaseNotes.safeVersion(""))
+        XCTAssertNil(ReleaseNotes.safeVersion("is broken. Visit evil.example to fix"))
+        XCTAssertNil(ReleaseNotes.safeVersion("<b>1.0</b>"))
+        XCTAssertNil(ReleaseNotes.safeVersion("v1.0"))
+        XCTAssertNil(ReleaseNotes.safeVersion(String(repeating: "1", count: 21)))
+    }
+
     // MARK: UpdatePhase
 
     private let info = UpdateInfo(version: "0.2.1", notes: ["A"])

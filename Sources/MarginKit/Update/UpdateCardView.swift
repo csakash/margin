@@ -58,7 +58,7 @@ public final class UpdateCardView: NSView {
         bodyLabel.font = Theme.ui(12)
         bodyLabel.textColor = Theme.textSecondary
         bodyLabel.isSelectable = false
-        bodyLabel.maximumNumberOfLines = 6   // bounds the card's height however long the notes are
+        bodyLabel.maximumNumberOfLines = 10   // 5 notes of up to 2 wrapped lines; bounds the card's height
         bodyLabel.cell?.truncatesLastVisibleLine = true
 
         let spacer = NSView()
@@ -223,8 +223,12 @@ public final class UpdateCardView: NSView {
 
     // MARK: Shine
 
+    private var shineRun = 0
+
     private func playShine(cardHeight: CGFloat) {
         guard !Theme.reduceMotion, bounds.width > 0 else { return }
+        shineRun += 1
+        let run = shineRun
         let h = max(cardHeight, 60)
         let band = bounds.width * 0.38
         CATransaction.begin()
@@ -240,9 +244,10 @@ public final class UpdateCardView: NSView {
         a.timingFunction = Theme.easeOut
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
+            guard let self, self.shineRun == run else { return }   // a newer sweep is in flight
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            self?.shine.opacity = 0   // never leave the band parked where a wider panel would reveal it
+            self.shine.opacity = 0   // never leave the band parked where a wider panel would reveal it
             CATransaction.commit()
         }
         shine.position.x = bounds.width + band

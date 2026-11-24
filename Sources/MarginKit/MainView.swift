@@ -99,6 +99,15 @@ public final class MainView: NSView {
         distanceFromBottom = max(0, doc.frame.height - clip.bounds.maxY)
     }
 
+    /// The drawer's room depends on the panel's height, so re-fit it when the panel is resized.
+    public override func setFrameSize(_ newSize: NSSize) {
+        let heightChanged = abs(newSize.height - frame.height) > 0.5
+        super.setFrameSize(newSize)
+        if heightChanged, drawer.isOpen {
+            DispatchQueue.main.async { [weak self] in self?.drawer.refit(animated: false) }
+        }
+    }
+
     @objc private func scrollResized() {
         guard let doc = editor.scrollView.documentView else { return }
         let clip = editor.scrollView.contentView

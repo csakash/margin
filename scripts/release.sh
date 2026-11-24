@@ -7,6 +7,9 @@
 #   SIGN_ID         codesigning identity (default: first "Developer ID Application" in the keychain)
 #   NOTARY_PROFILE  notarytool keychain profile (default: margin-notary). Create once with:
 #                   xcrun notarytool store-credentials margin-notary --apple-id <you@icloud.com> --team-id <TEAMID>
+#
+# QA only (refused unless ALLOW_QA_RELEASE=1; scripts/qa-update.sh sets them):
+#   VERSION, BUNDLE_ID, OUT_DIR, QA_LOCAL_FEED   passed on to bundle.sh
 #   DOWNLOAD_BASE   where the DMG will be served from (default: https://margin.motiontic.com/download)
 #   NOTES_DIR       folder holding <version>.md release notes (default: releases)
 #
@@ -29,6 +32,7 @@ if [[ "${ALLOW_QA_RELEASE:-}" != "1" ]]; then
     fi
   done
 fi
+if [[ "${GUARD_ONLY:-}" == "1" ]]; then echo "guard passed"; exit 0; fi   # used by qa-update.sh --check-only
 OUT_DIR="${OUT_DIR:-dist}"
 DOWNLOAD_BASE="${DOWNLOAD_BASE:-https://margin.motiontic.com/download}"
 NOTES_DIR="${NOTES_DIR:-releases}"
@@ -77,6 +81,12 @@ else
   echo "! No notary profile '$NOTARY_PROFILE' — signed but NOT notarized."
   echo "  Run once: xcrun notarytool store-credentials $NOTARY_PROFILE --apple-id <apple-id> --team-id <TEAMID>"
 fi
+# Sparkle installs whatever the feed offers without asking Gatekeeper, so an un-notarized build
+# must never get a feed entry by accident.
+if [[ "$NOTARIZED" != "1" && "${ALLOW_QA_RELEASE:-}" != "1" ]]; then
+  echo "✗ Not notarized, so no appcast.xml was written. $DMG is for local testing only."; exit 1
+fi
+
 # The feed entry is written last: stapling changes the DMG's bytes, and the signature covers them.
 echo "→ signing the update and writing $OUT_DIR/appcast.xml"
 ED_SIG=$("$SIGN_UPDATE" -p "$DMG" || true)
