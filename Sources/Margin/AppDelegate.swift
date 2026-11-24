@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
         // MARGIN_NOTES_DIR lets tests and demos use a scratch folder instead of ~/Documents/Margin.
-        let folder = ProcessInfo.processInfo.environment["MARGIN_NOTES_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let folder = Override.value("MARGIN_NOTES_DIR").map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? NoteStore.defaultFolder
         do { store = try NoteStore(folder: folder) } catch {
             let alert = NSAlert(error: error); alert.runModal(); NSApp.terminate(nil); return
@@ -402,6 +402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let app = NSMenu()
         app.addItem(withTitle: "About Margin", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         app.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "").target = self
+        app.addItem(withTitle: "Check for Updates Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "").target = self
         app.addItem(.separator())
         app.addItem(withTitle: "Hide Margin", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(withTitle: "Quit Margin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")

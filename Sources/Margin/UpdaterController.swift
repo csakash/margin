@@ -145,6 +145,7 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         guard new != phase || cardDismissed else { return }
         phase = new
         cardDismissed = false
+        if case .downloading = new {} else { NSLog("Margin updater: %@", String(describing: new).components(separatedBy: "(").first ?? "") }
         if let delay = new.autoDismissAfter {
             dismissTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -162,10 +163,11 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
 
     // MARK: SPUUpdaterDelegate
 
-    /// QA only: point at a local feed. Safe to ship, because Sparkle refuses any archive that is
-    /// not signed with Margin's EdDSA key, whatever feed offered it.
+    /// QA only: point at a local feed (environment, or the same key in the app's defaults so it
+    /// survives the relaunch after an update). Safe to ship, because Sparkle refuses any archive
+    /// that is not signed with Margin's EdDSA key, whatever feed offered it.
     func feedURLString(for updater: SPUUpdater) -> String? {
-        guard let url = ProcessInfo.processInfo.environment["MARGIN_FEED_URL"], !url.isEmpty else { return nil }
+        guard let url = Override.value("MARGIN_FEED_URL") else { return nil }
         return url
     }
 
@@ -173,7 +175,7 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
                  immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
         let i = describe(item)
         info = i
-        installNow = immediateInstallHandler
+        installNow = { NSLog("Margin updater: immediate install requested"); immediateInstallHandler() }
         set(.ready(i))
         return true   // we present it; Sparkle still installs on quit if the user never clicks
     }
@@ -299,5 +301,13 @@ final class UpdaterController: NSObject, SPUUserDriver, SPUUpdaterDelegate {
         case .idle, .upToDate, .failed:
             break
         }
+    }
+}
+
+/// Test and demo overrides: an environment variable, or the same key in the app's defaults.
+enum Override {
+    static func value(_ key: String) -> String? {
+        let v = ProcessInfo.processInfo.environment[key] ?? UserDefaults.standard.string(forKey: key)
+        return (v?.isEmpty ?? true) ? nil : v
     }
 }
