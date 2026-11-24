@@ -36,14 +36,18 @@ public final class OnboardingController {
     /// (a saved note or panel position): those people skip it.
     public static var hasRun: Bool {
         let d = UserDefaults.standard
-        return d.bool(forKey: doneKey) || d.string(forKey: "margin.current") != nil || d.string(forKey: "margin.anchor") != nil
+        if d.bool(forKey: doneKey) { return true }
+        if d.bool(forKey: startedKey) { return false }   // began it on a first launch, never finished
+        return d.string(forKey: "margin.current") != nil || d.string(forKey: "margin.anchor") != nil
     }
+    static let startedKey = "margin.tourStarted"
 
     // MARK: Start / finish
 
     public func start() {
         guard !isBusy, let glass = panel.glass else { return }
         isActive = true
+        UserDefaults.standard.set(true, forKey: Self.startedKey)
         panel.panel.makeFirstResponder(nil)   // nothing types into the hidden editor meanwhile
         step = 0
         sawFold = false
@@ -77,7 +81,13 @@ public final class OnboardingController {
 
         Sounds.play(.arrive)
         panel.arriveCentered(size: Self.tourSize) { [weak self] in
-            guard let self, let v = self.view else { return }
+            guard let self else { return }
+            if let skipped = self.finishAfterArrival {
+                self.finishAfterArrival = nil
+                self.finish(skipped: skipped)
+                return
+            }
+            guard let v = self.view else { return }
             self.panel.panel.makeFirstResponder(v)
             v.show(0, animated: true)
         }
@@ -85,14 +95,31 @@ public final class OnboardingController {
 
     /// Ends the tour now (as if skipped) and runs `then` once the normal UI is back.
     public func endNow(then: @escaping () -> Void) {
-        guard isActive else { then(); return }
-        afterFinish = then
+        if !isActive {
+            if view != nil {
+                // Already closing: run it once the normal UI is back.
+                let earlier = afterFinish
+                afterFinish = { earlier?(); then() }
+            } else {
+                then()
+            }
+            return
+        }
+        let earlier = afterFinish
+        afterFinish = { earlier?(); then() }
         finish(skipped: true)
     }
     private var afterFinish: (() -> Void)?
+    /// A finish requested while the panel was still opening; carried out once it lands.
+    private var finishAfterArrival: Bool?
 
     private func finish(skipped: Bool) {
         guard isActive else { return }
+        if panel.isArriving {
+            // The panel ignores anchor and size requests while it opens; restoring now would be lost.
+            finishAfterArrival = skipped
+            return
+        }
         isActive = false
         timers.forEach { $0.invalidate() }
         timers = []

@@ -92,10 +92,15 @@ if [[ "$STYLED" == "0" ]]; then
 else
   RW="$(mktemp -d)/rw.dmg"
   hdiutil create -volname "Margin" -srcfolder "$STAGE" -ov -fs HFS+ -format UDRW "$RW" >/dev/null
-  # The whole-disk node (first line), so detach takes every slice with it.
-  DEV=$(hdiutil attach -readwrite -noverify -noautoopen "$RW" | awk 'NR==1 {print $1}')
-  [[ "$DEV" == /dev/disk* && -d "/Volumes/Margin" ]] || { echo "✗ could not mount the disk image to style it"; exit 1; }
+  # The whole-disk node, so detach takes every slice with it.
+  DEV=$(hdiutil attach -readwrite -noverify -noautoopen "$RW" | awk '/^\/dev\/disk/ {print $1; exit}' || true)
   ERR="$(dirname "$RW")/window.err"
+  if [[ "$DEV" != /dev/disk* || ! -d "/Volumes/Margin" ]]; then
+    echo "! Could not mount the disk image as Margin to style it. Using the plain layout."
+    [[ "$DEV" == /dev/disk* ]] && hdiutil detach "$DEV" -force -quiet || true
+    rm -rf "$STAGE/.background" "$(dirname "$RW")"
+    hdiutil create -volname "Margin" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+  else
   if scripts/dmg-window.sh "Margin" 2>"$ERR"; then
     echo "→ styled the install window"
   else
@@ -105,6 +110,7 @@ else
   hdiutil detach "$DEV" -quiet || hdiutil detach "$DEV" -force -quiet
   hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG" >/dev/null
   rm -rf "$(dirname "$RW")"
+  fi
 fi
 rm -rf "$STAGE"
 codesign --force --timestamp --sign "$SIGN_ID" "$DMG"

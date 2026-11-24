@@ -100,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private func newNote() {
         // ⌥N, ⌘N or the menu during the tour: end the tour first, then make the note.
         if tour?.isBusy == true {
-            if tour.isActive { tour.endNow { [weak self] in self?.newNote() } }
+            tour.endNow { [weak self] in self?.newNote() }
             return
         }
         if panel.isMinimised { panel.setMinimised(false) }
