@@ -107,27 +107,66 @@ final class UpdateModelTests: XCTestCase {
 
     private let info = UpdateInfo(version: "0.2.1", notes: ["A"])
     private var all: [UpdatePhase] {
-        [.idle, .checking, .available(info), .downloading(info, 0.5), .ready(info), .installing(info), .upToDate("0.2.0"), .failed("x")]
+        [.idle, .checking, .available(info), .downloading(info, 0.5), .ready(info), .installing(info), .upToDate("0.2.0"), .failed("x"), .installed(info)]
     }
 
     // protects=the card is hidden only when idle
     // fails_when=any non-idle phase hides the card, or idle shows it
     // no_claim=does not prove the view obeys it
     func testShowsCard() {
-        XCTAssertEqual(all.map(\.showsCard), [false, true, true, true, true, true, true, true])
+        XCTAssertEqual(all.map(\.showsCard), [false, true, true, true, true, true, true, true, true])
     }
 
     // protects=the nub glows only for a downloaded, waiting update
     // fails_when=checking, downloading or an error lights the nub
     // no_claim=does not prove the nub draws it
     func testShowsNubDot() {
-        XCTAssertEqual(all.map(\.showsNubDot), [false, false, false, false, true, false, false, false])
+        XCTAssertEqual(all.map(\.showsNubDot), [false, false, false, false, true, false, false, false, false])
     }
 
-    // protects=only "up to date" hides itself, after 3 seconds
+    // protects=only "up to date" (3 s) and "you're on x" (6 s) hide themselves
     // fails_when=a ready update or an error would disappear without the user acting
     // no_claim=does not prove the timer fires
     func testAutoDismiss() {
-        XCTAssertEqual(all.map(\.autoDismissAfter), [nil, nil, nil, nil, nil, nil, 3, nil])
+        XCTAssertEqual(all.map(\.autoDismissAfter), [nil, nil, nil, nil, nil, nil, 3, nil, 6])
+    }
+
+    // MARK: PendingUpdate
+
+    // protects=the waiting update survives the relaunch with its version and notes intact
+    // fails_when=encode then decode changes the version or the notes, or info differs from the original
+    // no_claim=does not prove UserDefaults stores the data; that is the QA run
+    func testPendingUpdateRoundTrip() {
+        let p = PendingUpdate(UpdateInfo(version: "0.2.1", notes: ["Faster search", "Fixed the caret"]))
+        let back = PendingUpdate.decode(p.encoded())
+        XCTAssertEqual(back, p)
+        XCTAssertEqual(back?.info, UpdateInfo(version: "0.2.1", notes: ["Faster search", "Fixed the caret"]))
+    }
+
+    // protects=only the version and the note lines are stored, nothing else about the user or the update
+    // fails_when=the encoded JSON carries any key other than "version" and "notes"
+    // no_claim=none beyond protects
+    func testPendingUpdateStoresOnlyVersionAndNotes() throws {
+        let data = try XCTUnwrap(PendingUpdate(UpdateInfo(version: "0.2.1", notes: ["A"])).encoded())
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(Set(obj.keys), ["version", "notes"])
+    }
+
+    // protects=a value written by a newer Margin (with extra fields) is still read
+    // fails_when=an unknown extra key makes decoding fail
+    // no_claim=none beyond protects
+    func testPendingUpdateIgnoresExtraFields() {
+        let data = Data(#"{"version":"0.3.0","notes":["New"],"channel":"beta"}"#.utf8)
+        XCTAssertEqual(PendingUpdate.decode(data)?.info, UpdateInfo(version: "0.3.0", notes: ["New"]))
+    }
+
+    // protects=missing, corrupt or tampered stored data never produces a card
+    // fails_when=nil, garbage bytes, or a stored sentence as the version decode to a value
+    // no_claim=none beyond protects
+    func testPendingUpdateRejectsBadData() {
+        XCTAssertNil(PendingUpdate.decode(nil))
+        XCTAssertNil(PendingUpdate.decode(Data("not json".utf8)))
+        XCTAssertNil(PendingUpdate.decode(Data(#"{"version":"Visit evil.example","notes":[]}"#.utf8)))
+        XCTAssertNil(PendingUpdate.decode(Data(#"{"notes":["x"]}"#.utf8)))
     }
 }

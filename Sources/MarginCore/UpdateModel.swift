@@ -29,6 +29,8 @@ public enum UpdatePhase: Equatable, Sendable {
     case upToDate(String)
     /// Carries a one-line message.
     case failed(String)
+    /// After the relaunch into a new version: "You're on Margin x", shown once.
+    case installed(UpdateInfo)
 
     /// The card is visible for everything except `.idle`.
     public var showsCard: Bool { self != .idle }
@@ -41,8 +43,34 @@ public enum UpdatePhase: Equatable, Sendable {
 
     /// States that go away by themselves, and after how long.
     public var autoDismissAfter: TimeInterval? {
-        if case .upToDate = self { return 3 }
-        return nil
+        switch self {
+        case .upToDate: return 3
+        case .installed: return 6
+        default: return nil
+        }
+    }
+}
+
+/// The update that is downloaded and waiting, remembered across the relaunch so the new version
+/// can say "You're on Margin x" once.
+public struct PendingUpdate: Codable, Equatable, Sendable {
+    public let version: String
+    public let notes: [String]
+
+    public init(_ info: UpdateInfo) {
+        version = info.version
+        notes = info.notes
+    }
+
+    public var info: UpdateInfo { UpdateInfo(version: version, notes: notes) }
+
+    public func encoded() -> Data? { try? JSONEncoder().encode(self) }
+
+    /// nil for missing or unreadable data, or a version that does not look like one.
+    public static func decode(_ data: Data?) -> PendingUpdate? {
+        guard let data, let p = try? JSONDecoder().decode(PendingUpdate.self, from: data),
+              ReleaseNotes.safeVersion(p.version) != nil else { return nil }
+        return p
     }
 }
 

@@ -62,8 +62,33 @@ echo "→ building $DMG"
 STAGE=$(mktemp -d)
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
+# The window's background: design/dmg-background.svg at 1x and 2x in one TIFF.
+BG=$(mktemp -d)
+qlmanage -t -s 1200 -o "$BG" design/dmg-background.svg >/dev/null 2>&1
+sips -c 760 1200 --cropOffset 0 0 "$BG/dmg-background.svg.png" --out "$BG/bg@2x.png" >/dev/null
+sips -z 380 600 "$BG/bg@2x.png" --out "$BG/bg.png" >/dev/null
+mkdir "$STAGE/.background"
+tiffutil -cathidpicheck "$BG/bg.png" "$BG/bg@2x.png" -out "$STAGE/.background/background.tiff" 2>/dev/null
+rm -rf "$BG"
 rm -f "$DMG"
-hdiutil create -volname "Margin" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+if [[ -d "/Volumes/Margin" ]]; then
+  echo "! A volume named Margin is already mounted; eject it for the styled window. Using the plain layout."
+  hdiutil create -volname "Margin" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+else
+  RW="$(mktemp -d)/rw.dmg"
+  hdiutil create -volname "Margin" -srcfolder "$STAGE" -ov -fs HFS+ -format UDRW "$RW" >/dev/null
+  DEV=$(hdiutil attach -readwrite -noverify -noautoopen "$RW" | awk '/Apple_HFS/ {print $1; exit}')
+  ERR="$(dirname "$RW")/window.err"
+  if scripts/dmg-window.sh "Margin" 2>"$ERR"; then
+    echo "→ styled the install window"
+  else
+    echo "! Could not style the install window (Finder automation refused?): $(head -1 "$ERR"). Using the plain layout."
+  fi
+  sync
+  hdiutil detach "$DEV" -quiet || hdiutil detach "$DEV" -force -quiet
+  hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG" >/dev/null
+  rm -rf "$(dirname "$RW")"
+fi
 rm -rf "$STAGE"
 codesign --force --timestamp --sign "$SIGN_ID" "$DMG"
 

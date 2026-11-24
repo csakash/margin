@@ -47,13 +47,19 @@ rm -rf "$WORK"; mkdir -p "$WORK/AppIcon.iconset"
 sed 's/viewBox="0 0 512 512" width="512" height="512"/viewBox="-44 -44 600 600" width="1024" height="1024"/' \
   design/icon.svg > "$WORK/AppIcon.svg"
 qlmanage -t -s 1024 -o "$WORK" "$WORK/AppIcon.svg" >/dev/null 2>&1
-SRC="$WORK/AppIcon.svg.png"
+# qlmanage paints an opaque white page around the art; keep only the rounded tile.
+swift scripts/mask-icon.swift "$WORK/AppIcon.svg.png" "$WORK/AppIcon.png"
+SRC="$WORK/AppIcon.png"
 for s in 16 32 128 256 512; do
   sips -z $s $s "$SRC" --out "$WORK/AppIcon.iconset/icon_${s}x${s}.png" >/dev/null
   d=$((s * 2))
   sips -z $d $d "$SRC" --out "$WORK/AppIcon.iconset/icon_${s}x${s}@2x.png" >/dev/null
 done
 iconutil -c icns "$WORK/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+
+echo "→ sounds"
+mkdir -p "$APP/Contents/Resources/Sounds"
+cp Resources/Sounds/*.mp3 "$APP/Contents/Resources/Sounds/"
 
 QA_ATS=""
 if [[ "${QA_LOCAL_FEED:-}" == "1" ]]; then
