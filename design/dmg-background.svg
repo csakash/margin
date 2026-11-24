@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 380" width="600" height="380">
-  <!-- Margin's disk image window. Finder puts the app icon at (150,170) and Applications at (450,170). -->
+  <!-- Margin's disk image window. Finder puts the app icon at (150,170) and Applications at
+       (450,170), with their names centred at y≈244 in black text, so each name sits on a light
+       plate. A soft glow behind each icon keeps the dark Applications folder visible. -->
   <defs>
     <radialGradient id="top" cx="50%" cy="0%" r="75%">
       <stop offset="0" stop-color="#ffffff" stop-opacity=".09"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
@@ -7,14 +9,29 @@
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#131315"/><stop offset="1" stop-color="#050506"/>
     </linearGradient>
+    <radialGradient id="spot" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".22"/><stop offset=".6" stop-color="#ffffff" stop-opacity=".07"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
     <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
   </defs>
   <rect width="600" height="380" fill="url(#bg)"/>
   <rect width="600" height="380" fill="url(#top)"/>
+  <circle cx="150" cy="170" r="92" fill="url(#spot)"/>
+  <circle cx="450" cy="170" r="92" fill="url(#spot)"/>
+  <rect x="86" y="106" width="128" height="128" rx="30" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".16"/>
+  <rect x="386" y="106" width="128" height="128" rx="30" fill="#ffffff" fill-opacity=".05" stroke="#ffffff" stroke-opacity=".16"/>
   <g fill="none" stroke-linecap="round">
     <path d="M232 160 C 270 112, 330 112, 368 156" stroke="#ffffff" stroke-opacity=".35" stroke-width="3" filter="url(#glow)"/>
     <path d="M232 160 C 270 112, 330 112, 368 156" stroke="#ffffff" stroke-opacity=".7" stroke-width="1.6" stroke-dasharray="3 7"/>
     <path d="M356 150 L 368 156 L 362 143" stroke="#ffffff" stroke-opacity=".8" stroke-width="1.6" stroke-linejoin="round"/>
   </g>
-  <text x="300" y="320" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', Helvetica, sans-serif" font-size="13" fill="#a1a1a6">Drag <tspan fill="#ffffff" font-weight="600">Margin</tspan> into <tspan fill="#ffffff" font-weight="600">Applications</tspan></text>
+  <!-- Applications folder, drawn here because Finder leaves the /Applications link's icon blank. -->
+  <g transform="translate(450 172)" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M-44 -26 a6 6 0 0 1 6 -6 h22 l7 8 h47 a6 6 0 0 1 6 6 v46 a6 6 0 0 1 -6 6 h-76 a6 6 0 0 1 -6 -6 z" fill="#ffffff" fill-opacity=".10" stroke="#ffffff" stroke-opacity=".85" stroke-width="2"/>
+    <path d="M-44 -14 h88" stroke="#ffffff" stroke-opacity=".45" stroke-width="1.5"/>
+    <path d="M-11 20 L0 -2 L11 20 M-7 12 h14 M-15 20 h30" stroke="#ffffff" stroke-opacity=".9" stroke-width="2.2"/>
+  </g>
+  <rect x="104" y="233" width="92" height="22" rx="11" fill="#ffffff" fill-opacity=".88"/>
+  <rect x="396" y="233" width="108" height="22" rx="11" fill="#ffffff" fill-opacity=".88"/>
+  <text x="300" y="330" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', Helvetica, sans-serif" font-size="13" fill="#a1a1a6">Drag <tspan fill="#ffffff" font-weight="600">Margin</tspan> into <tspan fill="#ffffff" font-weight="600">Applications</tspan></text>
 </svg>

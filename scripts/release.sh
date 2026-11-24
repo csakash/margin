@@ -67,7 +67,7 @@ ln -s /Applications "$STAGE/Applications"
 make_background() {
   local bg; bg=$(mktemp -d)
   qlmanage -t -s 1200 -o "$bg" design/dmg-background.svg >/dev/null 2>&1 &&
-  sips -c 760 1200 --cropOffset 0 0 "$bg/dmg-background.svg.png" --out "$bg/bg@2x.png" >/dev/null &&
+  swift scripts/crop-top.swift "$bg/dmg-background.svg.png" "$bg/bg@2x.png" 1200 760 &&
   sips -z 380 600 "$bg/bg@2x.png" --out "$bg/bg.png" >/dev/null &&
   mkdir -p "$STAGE/.background" &&
   tiffutil -cathidpicheck "$bg/bg.png" "$bg/bg@2x.png" -out "$STAGE/.background/background.tiff" 2>/dev/null
