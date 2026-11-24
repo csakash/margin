@@ -63,6 +63,7 @@ public final class OnboardingController {
         v.onPrimary = { [weak self] in self?.primary() }
         v.onSkip = { [weak self] in self?.finish(skipped: true) }
         v.onKeycaps = { [weak self] in self?.foldKeyPressed() }
+        v.onSecondary = { [weak self] in self?.go((self?.step ?? 0) + 1) }
         v.onHeaderMouseDown = { [weak self] e in self?.headerMouseDown(e) }
         glass.contentView.addSubview(v)
         NSLayoutConstraint.activate([
@@ -154,7 +155,18 @@ public final class OnboardingController {
 
     // MARK: Steps
 
+    private var askedForScreens = false
+
     private func primary() {
+        if TourStep.all[step].kind == .screens, !askedForScreens, !ScreenAccess.isGranted {
+            // macOS shows its prompt once; the grant takes effect after Margin restarts.
+            askedForScreens = true
+            ScreenAccess.request()
+            view?.setTryMessage("Switch on Margin in the list, then reopen Margin when macOS asks")
+            view?.setPrimaryTitle("Next")
+            view?.setSecondary(nil)
+            return
+        }
         if step >= TourStep.all.count - 1 {
             finish(skipped: false)
         } else {
@@ -173,6 +185,15 @@ public final class OnboardingController {
         case 4:
             runWriteDemo()
         case 5:
+            // Far enough: a restart from macOS's "Quit & Reopen" must not start the tour again.
+            UserDefaults.standard.set(true, forKey: Self.doneKey)
+            askedForScreens = false
+            if ScreenAccess.isGranted {
+                view?.completeTry(message: "Already allowed")
+                view?.setPrimaryTitle("Next")
+                view?.setSecondary(nil)
+            }
+        case 6:
             veil?.fade(to: 0)
             after(0.12) { [weak self] in
                 Sounds.play(.done)

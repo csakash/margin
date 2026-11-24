@@ -3,7 +3,7 @@ import QuartzCore
 
 /// What one step of the first-launch tour shows. Copy matches design/onboarding.html.
 struct TourStep {
-    enum Kind { case plain, fold, place, write }
+    enum Kind { case plain, fold, place, write, screens }
     let eyebrow: String
     let title: String
     let sub: String?
@@ -23,6 +23,9 @@ struct TourStep {
                  sub: "Drag the top of this panel. It snaps to any edge or corner.", kind: .place, cta: "Next", hint: nil),
         TourStep(eyebrow: "04 · WRITE", title: "Just type. It turns into notes.",
                  sub: nil, kind: .write, cta: "Next", hint: "Drop images and links in too"),
+        TourStep(eyebrow: "05 · SCREENSHOTS", title: "Snap any part of the screen.",
+                 sub: "The ⌖ button below turns a region of your screen into an image in the note. macOS asks once for permission; Margin only sees what you select.",
+                 kind: .screens, cta: "Allow screenshots", hint: nil),
         TourStep(eyebrow: "READY", title: "That's all of it.",
                  sub: "Your notes are plain files on this Mac. Nothing leaves it. ⌥N starts a new one.", kind: .plain, cta: "Start writing", hint: nil),
     ]
@@ -35,6 +38,7 @@ final class OnboardingView: NSView {
     var onPrimary: (() -> Void)?
     var onSkip: (() -> Void)?
     var onKeycaps: (() -> Void)?
+    var onSecondary: (() -> Void)?
     /// mouseDown on the top bar (the Place step turns it into a panel drag).
     var onHeaderMouseDown: ((NSEvent) -> Void)?
 
@@ -46,6 +50,7 @@ final class OnboardingView: NSView {
     private let actionRow = NSStackView()
     private let primary = GlowButton()
     private let hintLabel = NSTextField(labelWithString: "")
+    private let secondary = NSButton(title: "", target: nil, action: nil)
     private let dots = NSStackView()
     private var dotViews: [NSView] = []
     // Try-box pieces, rebuilt per step.
@@ -79,14 +84,18 @@ final class OnboardingView: NSView {
         actionRow.orientation = .horizontal
         actionRow.alignment = .centerY
         actionRow.spacing = 12
-        actionRow.setViews([primary, hintLabel], in: .leading)
+        secondary.isBordered = false
+        secondary.target = self
+        secondary.action = #selector(secondaryClicked)
+        secondary.isHidden = true
+        actionRow.setViews([primary, secondary, hintLabel], in: .leading)
         actionRow.translatesAutoresizingMaskIntoConstraints = false
 
         dots.orientation = .horizontal
         dots.spacing = 6
         dots.alignment = .centerY
         dots.translatesAutoresizingMaskIntoConstraints = false
-        for _ in 0..<4 {
+        for _ in 0..<5 {
             let d = NSView()
             d.wantsLayer = true
             d.layer?.cornerRadius = 2.5
@@ -165,6 +174,8 @@ final class OnboardingView: NSView {
             views.append(makeTryBox(keycaps: [], message: "Drag from the top bar"))
         case .write:
             views.append(makeDemo())
+        case .screens:
+            views.append(makeTryBox(keycaps: [], message: "Not allowed yet"))
         case .plain:
             break
         }
@@ -191,6 +202,7 @@ final class OnboardingView: NSView {
 
         primary.title = step.cta
         primary.isHidden = step.kind == .fold || step.kind == .place
+        setSecondary(step.kind == .screens ? "Skip" : nil)
         hintLabel.stringValue = step.hint ?? ""
         hintLabel.isHidden = step.hint == nil
         skip.isHidden = index == TourStep.all.count - 1
@@ -213,6 +225,17 @@ final class OnboardingView: NSView {
     }
 
     func setTryMessage(_ message: String) { tryMessage?.stringValue = message }
+
+    func setPrimaryTitle(_ title: String) { primary.title = title }
+
+    func setSecondary(_ title: String?) {
+        secondary.isHidden = title == nil
+        if let title {
+            secondary.attributedTitle = NSAttributedString(string: title, attributes: [
+                .font: Theme.ui(12.5), .foregroundColor: Theme.textSecondary,
+            ])
+        }
+    }
 
     // MARK: Pieces
 
@@ -303,7 +326,7 @@ final class OnboardingView: NSView {
 
     private func setDots(active index: Int) {
         // Dots stand for steps 1…4; hidden on the welcome and the finish.
-        dots.isHidden = !(1...4).contains(index)
+        dots.isHidden = !(1...5).contains(index)
         for (i, d) in dotViews.enumerated() {
             let n = i + 1
             let on = n == index
@@ -360,6 +383,7 @@ final class OnboardingView: NSView {
     @objc private func primaryClicked() { onPrimary?() }
     @objc private func skipClicked() { onSkip?() }
     @objc private func keycapsClicked() { onKeycaps?() }
+    @objc private func secondaryClicked() { onSecondary?() }
 }
 
 /// The tour's top bar: forwards mouseDown so the Place step can start a real panel drag.

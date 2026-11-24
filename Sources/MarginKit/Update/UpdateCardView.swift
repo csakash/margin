@@ -2,6 +2,20 @@ import AppKit
 import QuartzCore
 import MarginCore
 
+/// A plain message for the card (not an update state): a title, a line of text and up to two buttons.
+public struct CardNotice: Equatable, Sendable {
+    public let title: String
+    public let body: String
+    public let primary: String?
+    public let secondary: String?
+    public init(title: String, body: String, primary: String?, secondary: String?) {
+        self.title = title
+        self.body = body
+        self.primary = primary
+        self.secondary = secondary
+    }
+}
+
 /// The in-panel update notice. Sits between the editor and the toolbar and grows from zero height,
 /// so it pushes the note up instead of covering it. Draws every `UpdatePhase`; knows nothing about
 /// the updater itself.
@@ -13,6 +27,9 @@ public final class UpdateCardView: NSView {
     public var onDismiss: (() -> Void)?
 
     public private(set) var phase: UpdatePhase = .idle
+    /// A plain message shown instead of an update state (the Screen Recording card uses this).
+    public private(set) var notice: CardNotice?
+    private var isShowing: Bool { notice != nil || phase.showsCard }
     /// Reports the height the card wants (0 when hidden) and whether the change is animated.
     public var onTargetHeightChange: ((CGFloat, Bool) -> Void)?
 
@@ -124,15 +141,17 @@ public final class UpdateCardView: NSView {
         let target = newPhase.showsCard ? fittingHeight() : 0
         setHeight(target, animated: animated)
         if case .ready = newPhase, old != newPhase { playShine(cardHeight: target) }
-        if !newPhase.showsCard {
-            // Once collapsed, nothing may keep animating or stay reachable inside a zero-height card.
-            let moving = animated && !Theme.reduceMotion && window != nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + (moving ? 0.45 : 0)) { [weak self] in
-                guard let self, !self.phase.showsCard else { return }
-                self.spinner.isSpinning = false
-                self.spinner.isHidden = true
-                self.actionRow.isHidden = true
-            }
+        if !newPhase.showsCard { tidyAfterCollapse(animated: animated) }
+    }
+
+    /// Once collapsed, nothing may keep animating or stay reachable inside a zero-height card.
+    private func tidyAfterCollapse(animated: Bool) {
+        let moving = animated && !Theme.reduceMotion && window != nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + (moving ? 0.45 : 0)) { [weak self] in
+            guard let self, !self.isShowing else { return }
+            self.spinner.isSpinning = false
+            self.spinner.isHidden = true
+            self.actionRow.isHidden = true
         }
     }
 
@@ -166,6 +185,23 @@ public final class UpdateCardView: NSView {
             title = "You're on Margin \(i.version)"; body = bullets(i)
         }
 
+        fill(title: title, detail: detail, body: body, primaryTitle: primaryTitle, secondaryTitle: secondaryTitle,
+             spinning: spinning, fraction: fraction)
+    }
+
+    /// Shows a plain message (nil hides it). Used by a card that never shows update states.
+    public func showNotice(_ n: CardNotice?, animated: Bool) {
+        notice = n
+        if let n {
+            fill(title: n.title, detail: "", body: n.body, primaryTitle: n.primary, secondaryTitle: n.secondary,
+                 spinning: false, fraction: nil)
+        }
+        setHeight(isShowing ? fittingHeight() : 0, animated: animated)
+        if !isShowing { tidyAfterCollapse(animated: animated) }
+    }
+
+    private func fill(title: String, detail: String, body: String, primaryTitle: String?, secondaryTitle: String?,
+                      spinning: Bool, fraction: Double?) {
         // Everything from the feed is shown as plain text: stringValue, never attributed HTML.
         titleLabel.stringValue = title
         detailLabel.stringValue = detail
@@ -219,7 +255,7 @@ public final class UpdateCardView: NSView {
     /// Wrapped note lines change height with the panel's width.
     public override func layout() {
         super.layout()
-        guard phase.showsCard, abs(bounds.width - measuredWidth) > 0.5 else { return }
+        guard isShowing, abs(bounds.width - measuredWidth) > 0.5 else { return }
         setHeight(fittingHeight(), animated: false)
     }
 

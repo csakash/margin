@@ -17,21 +17,29 @@ final class MainCallback<T>: @unchecked Sendable {
     }
 }
 
+/// What happened when a capture was asked for.
+public enum CaptureStart: Sendable {
+    /// The region picker is up; the completion will run.
+    case started
+    /// A capture is already in progress; the completion will not run.
+    case busy
+    /// Screen Recording is not allowed (or not yet in effect). Nothing was started and macOS was
+    /// not asked: starting `screencapture` here would bring up its dialog on every screenshot.
+    case needsPermission
+}
+
 @MainActor
 public enum ScreenCapture {
     private static var inFlight = false
 
     /// Lets the user drag a region (system picker), then returns PNG data, or nil if cancelled.
-    /// The completion is called on the main thread exactly once.
-    public static func captureRegion(_ completion: @escaping (Data?) -> Void) {
+    /// When it returns `.started`, the completion is called on the main thread exactly once.
+    @discardableResult
+    public static func captureRegion(_ completion: @escaping (Data?) -> Void) -> CaptureStart {
+        guard ScreenAccess.isGranted else { return .needsPermission }
+        guard !inFlight else { return .busy }
         let callback = MainCallback<Data?>(completion)
-        guard !inFlight else { callback.fire(nil); return }
         inFlight = true
-
-        // Without Screen Recording permission screencapture only sees the wallpaper. Ask once, then go ahead anyway.
-        if !CGPreflightScreenCaptureAccess() {
-            _ = CGRequestScreenCaptureAccess()
-        }
 
         // Keep our own floating panels out of the shot.
         let hidden = NSApp.windows.filter { $0 is FloatingPanel && $0.isVisible }
@@ -63,6 +71,7 @@ public enum ScreenCapture {
                 finish(nil)
             }
         }
+        return .started
     }
 
     /// Reads the capture (nil when the user cancelled: file missing or empty) and deletes it.

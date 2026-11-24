@@ -66,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             editor.focus()
         }
         wireUpdates()
+        wireScreenNotice()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -289,11 +290,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 }
             }
         case .screenshot:
-            ScreenCapture.captureRegion { [weak self] data in
+            let start = ScreenCapture.captureRegion { [weak self] data in
                 guard let self, let data, let rel = try? store.assets.importData(data, ext: "png") else { return }
                 if panel.isMinimised { panel.setMinimised(false) }
                 editor.insertImage(relativePath: rel, caption: "Screenshot")
                 editor.focus()
+            }
+            switch start {
+            case .needsPermission: showScreenNotice(ScreenAccess.wasRequested ? .settings : .ask)
+            case .started: showScreenNotice(nil)
+            case .busy: break
             }
         case .clipTab:
             BrowserClip.frontTab { [weak self] tab in
@@ -301,6 +307,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 guard let tab else { NSSound.beep(); return }
                 editor.insertLink(url: tab.url, title: tab.title)
                 editor.focus()
+            }
+        }
+    }
+
+    // MARK: Screen Recording notice
+
+    /// Where the screenshot permission card is: not asked yet, asked (go to Settings), or Settings
+    /// opened (a restart makes the grant take effect).
+    private enum ScreenNotice { case ask, settings, reopen }
+    private var screenNotice: ScreenNotice?
+
+    private func showScreenNotice(_ n: ScreenNotice?) {
+        screenNotice = n
+        let card: CardNotice?
+        switch n {
+        case .ask:
+            card = CardNotice(title: "Screenshots need one permission",
+                              body: "macOS asks once. Margin only captures the area you select.",
+                              primary: "Allow", secondary: "Not now")
+        case .settings:
+            card = CardNotice(title: "Switch on Margin for screenshots",
+                              body: "System Settings › Privacy & Security › Screen & System Audio Recording. Margin needs a restart after that.",
+                              primary: "Open Settings", secondary: "Not now")
+        case .reopen:
+            card = CardNotice(title: "Reopen Margin to finish",
+                              body: "Once Margin is switched on in System Settings, a restart lets it take screenshots.",
+                              primary: "Reopen Margin", secondary: "Not now")
+        case nil:
+            card = nil
+        }
+        main.noticeCard.showNotice(card, animated: !panel.isMinimised)
+    }
+
+    private func wireScreenNotice() {
+        main.noticeCard.onDismiss = { [weak self] in self?.showScreenNotice(nil) }
+        main.noticeCard.onPrimary = { [weak self] in
+            guard let self else { return }
+            switch screenNotice {
+            case .ask:
+                ScreenAccess.request()
+                showScreenNotice(ScreenAccess.isGranted ? nil : .settings)
+            case .settings:
+                ScreenAccess.openSettings()
+                showScreenNotice(.reopen)
+            case .reopen:
+                ScreenAccess.relaunch()
+            case nil:
+                break
             }
         }
     }
