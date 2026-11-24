@@ -51,6 +51,8 @@ public final class EditorController: NSObject {
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
+        textView.usesFindBar = true                 // ⌘F / ⌘G / ⇧⌘G
+        textView.isIncrementalSearchingEnabled = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
@@ -73,6 +75,21 @@ public final class EditorController: NSObject {
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled),
                                                name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+        // Undo and redo restore the text without a text-did-change notification, so they were
+        // never saved. Treat them as edits.
+        for name in [NSNotification.Name.NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange] {
+            NotificationCenter.default.addObserver(self, selector: #selector(undoneOrRedone(_:)), name: name, object: nil)
+        }
+    }
+
+    @objc private func undoneOrRedone(_ note: Notification) {
+        // The window shares one undo manager with the drawer's search field: only a change to
+        // the note's own text is an edit worth saving.
+        guard let um = note.object as? UndoManager, um === textView.undoManager,
+              textView.string != lastNotifiedText else { return }
+        lastNotifiedText = textView.string
+        onChange?(textView.string)
+        textView.invalidateDecorations()
     }
 
     @objc private func scrolled(_ note: Notification) {
@@ -83,12 +100,16 @@ public final class EditorController: NSObject {
         styler.containerWidthMayHaveChanged()
     }
 
+    /// The text the app was last told about (opened or changed), so undo/redo saves only real changes.
+    private var lastNotifiedText = ""
+
     /// The full markdown text of the open note.
     public var text: String {
         get { textView.string }
         set {
             closeSlashMenu()
             textView.string = newValue
+            lastNotifiedText = newValue
             textView.typingAttributes = MarkdownStyler.baseAttributes
             textView.invalidateDecorations()
         }
@@ -107,6 +128,39 @@ public final class EditorController: NSObject {
         case .divider: perform(EditorLogic.blockInsertion(text: ns, caret: caret, block: "---"))
         default: perform(EditorLogic.applyPrefix(kind, text: ns, caret: caret))
         }
+    }
+
+    /// ⌘B / ⌘I / ⌘E: wrap the selection in a markdown marker, or unwrap it when the marker is
+    /// already right around it. With nothing selected, inserts a pair and puts the caret inside.
+    public func toggleInline(_ marker: String) {
+        closeSlashMenu()
+        let ns = textView.string as NSString
+        let sel = textView.selectedRange()
+        let m = (marker as NSString).length
+        textView.breakUndoCoalescing()
+        let selected = ns.substring(with: sel)
+        if selected.contains("\n") {
+            // Markdown emphasis does not span lines: wrap each non-empty line on its own.
+            let wrapped = selected.components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces).isEmpty ? $0 : marker + $0 + marker }
+                .joined(separator: "\n")
+            _ = textView.replace(sel, with: wrapped,
+                                 select: NSRange(location: sel.location, length: (wrapped as NSString).length))
+            textView.breakUndoCoalescing()
+            return
+        }
+        if sel.length > 0, sel.location >= m, NSMaxRange(sel) + m <= ns.length,
+           ns.substring(with: NSRange(location: sel.location - m, length: m)) == marker,
+           ns.substring(with: NSRange(location: NSMaxRange(sel), length: m)) == marker {
+            let outer = NSRange(location: sel.location - m, length: sel.length + 2 * m)
+            _ = textView.replace(outer, with: ns.substring(with: sel),
+                                 select: NSRange(location: sel.location - m, length: sel.length))
+        } else {
+            let inner = ns.substring(with: sel)
+            _ = textView.replace(sel, with: marker + inner + marker,
+                                 select: NSRange(location: sel.location + m, length: sel.length))
+        }
+        textView.breakUndoCoalescing()
     }
 
     /// Insert at the caret as its own paragraph(s).
@@ -191,6 +245,7 @@ public final class EditorController: NSObject {
 
 extension EditorController: NSTextViewDelegate {
     public func textDidChange(_ notification: Notification) {
+        lastNotifiedText = textView.string
         onChange?(textView.string)
         updateSlashMenu()
         textView.invalidateDecorations()

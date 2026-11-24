@@ -10,7 +10,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${VERSION:-0.2.1}"
+VERSION="${VERSION:-0.2.2}"
 BUNDLE_ID="${BUNDLE_ID:-app.margin.notes}"
 # Public half of the update-signing key. The private half lives in the maintainer's login keychain
 # (see "Releasing" in README.md). Sparkle refuses any update not signed with it.
