@@ -47,7 +47,7 @@ public final class FloatingPanel: NSPanel {
     /// Performs the menu item matching a ⌘ key press. Returns false when no item matches, so text
     /// navigation (⌘←, ⌘→, ⌘⌫…) still reaches the text view as usual.
     func routeShortcut(_ event: NSEvent) -> Bool {
-        if performKeyEquivalent(with: event) { return true }
+        // Views' own key equivalents are left to AppKit's pass, which runs when this returns false.
         guard let menu = NSApp.mainMenu, let item = Self.menuItem(for: event, in: menu),
               let action = item.action else { return false }
         if let target = item.target {
@@ -60,12 +60,30 @@ public final class FloatingPanel: NSPanel {
                 if action == Selector(("undo:")) { if um.canUndo { um.undo() } }
                 else if um.canRedo { um.redo() }
             }
-        } else if !(firstResponder?.tryToPerform(action, with: item) ?? false) {
+        } else if let responder = Self.responder(for: action, from: firstResponder) {
+            // Ask it first, as AppKit's menu would: Copy with nothing selected, Find in a search
+            // field and the like are refused rather than run.
+            if let v = responder as? NSUserInterfaceValidations, !v.validateUserInterfaceItem(item) {
+                NSSound.beep()
+            } else {
+                _ = responder.tryToPerform(action, with: item)
+            }
+        } else {
             // Copy, Paste, Select All… go to this panel's own responder chain, not to AppKit's
             // notion of the key window (which an inactive app does not have).
             NSApp.sendAction(action, to: nil, from: item)
         }
         return true
+    }
+
+    /// The first responder in the chain from `start` that implements `action`.
+    static func responder(for action: Selector, from start: NSResponder?) -> NSResponder? {
+        var r = start
+        while let current = r {
+            if current.responds(to: action) { return current }
+            r = current.nextResponder
+        }
+        return nil
     }
 
     /// The menu item whose key equivalent matches the event (⇧ written as an uppercase key or as

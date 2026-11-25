@@ -172,6 +172,13 @@ public final class MarkdownTextView: NSTextView {
         insertPlainText(from: .general)
     }
 
+    /// Paste stays available for images, files and links too (the media handler takes those),
+    /// not only for the plain text NSTextView itself would accept.
+    public override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(paste(_:)) || item.action == #selector(pasteAsPlainText(_:)) { return isEditable }
+        return super.validateUserInterfaceItem(item)
+    }
+
     /// Paste and Match Style is the same thing here: notes are plain markdown.
     public override func pasteAsPlainText(_ sender: Any?) { insertPlainText(from: .general) }
 
@@ -182,7 +189,9 @@ public final class MarkdownTextView: NSTextView {
         guard isEditable, let s = pb.string(forType: .string), !s.isEmpty else { NSSound.beep(); return }
         let text = s.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
         breakUndoCoalescing()
-        insertText(text, replacementRange: selectedRange())
+        // NSNotFound: let NSTextView replace the selection (or a pending IME composition) itself.
+        // super: a pasted "/" is not typing, so it must not open the block menu.
+        super.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         breakUndoCoalescing()
     }
 
