@@ -132,7 +132,8 @@ public struct ShortcutStore {
     - (Amended in build, D7.) While recording, system and other apps' global hotkeys are also
       paused with `CGSSetGlobalHotKeyOperatingMode` (private SkyLight API, as the ShortcutRecorder
       library does; fine for the direct-download build, not Mac App Store). It is restored when
-      recording ends and on quit. This lets ⌘Space reach the recorder so AC6 can reject it.
+      recording ends and on quit. This lets system-held combos such as ⌃Space (input sources) reach the recorder so AC6 can
+      reject them. (⌘Space is rejected earlier by the D8 ⌘-only rule.)
     - It captures the first keyDown with its modifiers through a local `NSEvent` monitor. A
       modifier-only press updates the hint live (e.g. "⌃⌥…") but does not finish recording.
     - **Esc** cancels and leaves the binding unchanged. A click outside the field, or the
@@ -169,7 +170,7 @@ Every location in the hardcoded-label table above reads from `ShortcutStore` and
 3. The binding from AC2 survives quit + relaunch. `defaults read <bundle-id> margin.shortcut.toggle` shows `{"keyCode":46,"modifiers":6144}` (JSON data).
 4. Record plain `A`: the inline message "Use at least one of ⌘ ⌥ ⌃." appears and the previous binding still works.
 5. Record the New Note combo onto Show / Minimise: the duplicate message appears and both old bindings still work.
-6. Record a combo already held by the system or another app (QA uses ⌘Space when Spotlight owns it): the in-use message appears and the old binding still fires.
+6. Record a combo already held by the system or another app (QA uses ⌃Space, an enabled input-source shortcut on the QA Mac; corrected from ⌘Space after D8, review R10): the in-use message appears and the old binding still fires.
 7. While a recorder is recording, pressing the current Show / Minimise combo records it and does **not** fold the panel. Esc cancels and the binding is unchanged.
 8. Reset restores ⌥Space / ⌥N and is disabled when already default.
 9. Welcome Tour fold step shows keycaps for the current binding, and pressing that binding advances the tour.

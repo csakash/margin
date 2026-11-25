@@ -89,6 +89,8 @@ final class ShortcutTests: XCTestCase {
         ShortcutStore.live = [.toggle: ShortcutAction.toggle.defaultShortcut]
         XCTAssertEqual(store.effectiveShortcut(for: .toggle), ShortcutAction.toggle.defaultShortcut)
         XCTAssertEqual(store.validate(ShortcutAction.toggle.defaultShortcut, for: .newNote), .duplicate(.toggle))
+        // R9: the stored (not live) combo is still taken.
+        XCTAssertEqual(store.validate(stored, for: .newNote), .duplicate(.toggle))
     }
 
     // protects=extra modifiers are allowed (⌃⌥Space, ⌘⇧M); fails_when=multi-modifier combo rejected; no_claim=does not check whether macOS owns the combo

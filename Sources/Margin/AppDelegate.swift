@@ -256,7 +256,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         var failed: [Shortcut] = []
         for action in ShortcutAction.allCases {
             let wanted = shortcuts.shortcut(for: action)
-            if let id = registerHotkey(action, wanted) { liveHotkeys[action] = (id, wanted); continue }
+            // A stored value that breaks the rules (written by hand, or by an older build) is skipped.
+            if shortcuts.validate(wanted, for: action) == .ok, let id = registerHotkey(action, wanted) {
+                liveHotkeys[action] = (id, wanted)
+                continue
+            }
             let fallback = action.defaultShortcut
             if fallback != wanted, shortcuts.validate(fallback, for: action) == .ok,
                let id = registerHotkey(action, fallback) {

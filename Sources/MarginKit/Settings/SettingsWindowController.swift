@@ -121,7 +121,9 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
     // MARK: Binding
 
     private func attempt(_ shortcut: Shortcut, for action: ShortcutAction) {
-        if shortcut == store.effectiveShortcut(for: action) {   // unchanged
+        // Unchanged only when it is both live and stored; after a fallback, picking the live
+        // default again (or Reset) clears the dead stored combo.
+        if shortcut == store.effectiveShortcut(for: action), shortcut == store.shortcut(for: action) {
             setMessage(nil, for: action)
             return
         }
@@ -152,7 +154,7 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
         for (action, row) in rows {
             let current = store.effectiveShortcut(for: action)
             row.recorder.shortcut = current
-            row.reset.isEnabled = current != action.defaultShortcut
+            row.reset.isEnabled = current != action.defaultShortcut || store.shortcut(for: action) != action.defaultShortcut
         }
     }
 

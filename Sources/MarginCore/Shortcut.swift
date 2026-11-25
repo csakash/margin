@@ -194,7 +194,10 @@ public struct ShortcutStore {
         if Shortcut.arrowKeyCodes.contains(shortcut.keyCode), m == Shortcut.Mod.control | Shortcut.Mod.option {
             return .reservedKey
         }
-        for other in ShortcutAction.allCases where other != action && effectiveShortcut(for: other) == shortcut {
+        // Both the other action's live and stored combo: after a fallback they differ, and the
+        // stored one comes back on the next launch.
+        for other in ShortcutAction.allCases where other != action
+            && (effectiveShortcut(for: other) == shortcut || self.shortcut(for: other) == shortcut) {
             return .duplicate(other)
         }
         return .ok
