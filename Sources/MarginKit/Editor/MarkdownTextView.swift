@@ -169,7 +169,30 @@ public final class MarkdownTextView: NSTextView {
 
     public override func paste(_ sender: Any?) {
         if let h = mediaHandler, let c = editorController, h.handlePaste(.general, in: c) { return }
-        pasteAsPlainText(sender)
+        insertPlainText(from: .general)
+    }
+
+    /// Paste stays available for images, files and links too (the media handler takes those),
+    /// not only for the plain text NSTextView itself would accept.
+    public override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(paste(_:)) || item.action == #selector(pasteAsPlainText(_:)) { return isEditable }
+        return super.validateUserInterfaceItem(item)
+    }
+
+    /// Paste and Match Style is the same thing here: notes are plain markdown.
+    public override func pasteAsPlainText(_ sender: Any?) { insertPlainText(from: .general) }
+
+    /// Inserts the pasteboard's text at the selection. NSTextView's own plain-text paste routes back
+    /// through `paste(_:)` for a plain-text view, so the override above never reached the text and
+    /// nothing was pasted. Going through `insertText` keeps it undoable and saved like typing.
+    private func insertPlainText(from pb: NSPasteboard) {
+        guard isEditable, let s = pb.string(forType: .string), !s.isEmpty else { NSSound.beep(); return }
+        let text = s.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        breakUndoCoalescing()
+        // NSNotFound: let NSTextView replace the selection (or a pending IME composition) itself.
+        // super: a pasted "/" is not typing, so it must not open the block menu.
+        super.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
+        breakUndoCoalescing()
     }
 
     public override func pasteAsRichText(_ sender: Any?) { paste(sender) }

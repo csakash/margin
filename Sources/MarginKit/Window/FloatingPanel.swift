@@ -29,37 +29,61 @@ public final class FloatingPanel: NSPanel {
     public override var canBecomeKey: Bool { true }
     public override var canBecomeMain: Bool { false }
 
-    /// A non-activating panel leaves Margin inactive, and AppKit only offers key equivalents to
-    /// the main menu of the active app, so ⌘C, ⌘V, ⌘Z and the rest went nowhere. Offer them here:
-    /// first to the views in this panel, then to the main menu (whose items target the first
-    /// responder of this key panel). When Margin is active, AppKit handles them before this point.
-    public override func sendEvent(_ event: NSEvent) {
-        if event.type == .keyDown,
-           event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
-           !NSApp.isActive {
-            if performKeyEquivalent(with: event) { return }
-            if let menu = NSApp.mainMenu, let item = Self.menuItem(for: event, in: menu), let action = item.action {
-                // Items without a target (Copy, Paste, Undo, Select All…) normally go to the key
-                // window's first responder, but an inactive app has no key window as far as
-                // AppKit's routing is concerned. Walk this panel's responder chain instead.
-                if let target = item.target {
-                    NSApp.sendAction(action, to: target, from: item)
-                } else if action == Selector(("undo:")) || action == Selector(("redo:")) {
-                    // Undo and redo are answered by the window's undo manager, which the
-                    // responder walk below does not reach for an inactive app. Only while the
-                    // user is typing in an editable text view: never into a hidden or folded note.
-                    if let tv = firstResponder as? NSTextView, tv.isEditable, !tv.hasMarkedText(),
-                       let um = tv.undoManager {
-                        if action == Selector(("undo:")) { if um.canUndo { um.undo() } }
-                        else if um.canRedo { um.redo() }
-                    }
-                } else if !(firstResponder?.tryToPerform(action, with: item) ?? false) {
-                    NSApp.sendAction(action, to: nil, from: item)
-                }
-                return
-            }
+    /// Routes ⌘ shortcuts for every Margin panel, before AppKit sees them. Call once at launch.
+    ///
+    /// The panel never activates Margin, and AppKit's own key-equivalent routing depends on the
+    /// app being active and on its idea of the key window: ⌘C, ⌘V, ⌘Z and the rest went nowhere,
+    /// or only sometimes worked. A local monitor sees each key press as soon as it reaches Margin,
+    /// whatever app is in front, and handles it the same way every time.
+    public static func installShortcutRouting() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
+                  let panel = (event.window ?? NSApp.keyWindow) as? FloatingPanel,
+                  panel.isKeyWindow else { return event }
+            return MainActor.assumeIsolated { panel.routeShortcut(event) } ? nil : event
         }
-        super.sendEvent(event)
+    }
+
+    /// Performs the menu item matching a ⌘ key press. Returns false when no item matches, so text
+    /// navigation (⌘←, ⌘→, ⌘⌫…) still reaches the text view as usual.
+    func routeShortcut(_ event: NSEvent) -> Bool {
+        // Views' own key equivalents are left to AppKit's pass, which runs when this returns false.
+        guard let menu = NSApp.mainMenu, let item = Self.menuItem(for: event, in: menu),
+              let action = item.action else { return false }
+        if let target = item.target {
+            NSApp.sendAction(action, to: target, from: item)
+        } else if action == Selector(("undo:")) || action == Selector(("redo:")) {
+            // Undo and redo belong to the undo manager; only while the user is typing in an
+            // editable text view, never into a hidden or folded note.
+            if let tv = firstResponder as? NSTextView, tv.isEditable, !tv.hasMarkedText(),
+               let um = tv.undoManager {
+                if action == Selector(("undo:")) { if um.canUndo { um.undo() } }
+                else if um.canRedo { um.redo() }
+            }
+        } else if let responder = Self.responder(for: action, from: firstResponder) {
+            // Ask it first, as AppKit's menu would: Copy with nothing selected, Find in a search
+            // field and the like are refused rather than run.
+            if let v = responder as? NSUserInterfaceValidations, !v.validateUserInterfaceItem(item) {
+                NSSound.beep()
+            } else {
+                _ = responder.tryToPerform(action, with: item)
+            }
+        } else {
+            // Copy, Paste, Select All… go to this panel's own responder chain, not to AppKit's
+            // notion of the key window (which an inactive app does not have).
+            NSApp.sendAction(action, to: nil, from: item)
+        }
+        return true
+    }
+
+    /// The first responder in the chain from `start` that implements `action`.
+    static func responder(for action: Selector, from start: NSResponder?) -> NSResponder? {
+        var r = start
+        while let current = r {
+            if current.responds(to: action) { return current }
+            r = current.nextResponder
+        }
+        return nil
     }
 
     /// The menu item whose key equivalent matches the event (⇧ written as an uppercase key or as
@@ -84,4 +108,5 @@ public final class FloatingPanel: NSPanel {
         return nil
     }
 }
+
 
