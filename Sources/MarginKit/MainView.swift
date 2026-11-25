@@ -147,10 +147,10 @@ public final class MainView: NSView {
 @MainActor
 public final class HeaderBar: NSView {
     public let title = NSTextField(labelWithString: "Untitled")
-    public let newButton = IconButton(symbol: "plus", tip: "New note  ⌥N")
+    public let newButton = IconButton(symbol: "plus", tip: "New note")
     public let pinButton = IconButton(symbol: "pin", tip: "Float above all Spaces")
     public let opacityButton = IconButton(symbol: "circle.lefthalf.filled", tip: "Opacity")
-    public let minimiseButton = IconButton(symbol: "minus", tip: "Minimise  ⌥Space")
+    public let minimiseButton = IconButton(symbol: "minus", tip: "Minimise")
     /// mouseDown on empty header space (not a button): start dragging the panel.
     public var onDrag: ((NSEvent) -> Void)?
 
@@ -170,6 +170,9 @@ public final class HeaderBar: NSView {
             stack.topAnchor.constraint(equalTo: topAnchor), stack.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         pinButton.isOn = true
+        updateShortcutTips()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateShortcutTips),
+                                               name: .marginShortcutsChanged, object: nil)
         let line = HairlineView(); line.translatesAutoresizingMaskIntoConstraints = false
         addSubview(line)
         NSLayoutConstraint.activate([
@@ -181,6 +184,13 @@ public final class HeaderBar: NSView {
 
     public override func mouseDown(with event: NSEvent) { onDrag?(event) }
     public override var mouseDownCanMoveWindow: Bool { false }
+
+    /// Tooltips name the user's current bindings.
+    @objc private func updateShortcutTips() {
+        let store = ShortcutStore()
+        newButton.tip = "New note  \(store.shortcut(for: .newNote).displayString)"
+        minimiseButton.tip = "Minimise  \(store.shortcut(for: .toggle).displayString)"
+    }
 }
 
 // MARK: - Toolbar
@@ -235,6 +245,12 @@ public final class IconButton: NSButton {
     public var isOn = false { didSet { refresh() } }
     private var hovering = false
     private let baseSymbol: String
+
+    /// Tooltip and accessibility label.
+    public var tip: String {
+        get { toolTip ?? "" }
+        set { toolTip = newValue; setAccessibilityLabel(newValue); refresh() }
+    }
 
     public init(symbol: String, tip: String) {
         baseSymbol = symbol

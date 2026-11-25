@@ -1,8 +1,9 @@
 import AppKit
+import MarginCore
 
 /// Runs the first-launch tour: the arrival, seven steps (welcome, five topics, ready), sounds, the screen veil, and handing the
 /// panel back to the user afterwards. The app forwards three things to it while it is active:
-/// the ⌥ Space hotkey (`foldKeyPressed`), panel state changes (`panelStateChanged`) and a finished
+/// the fold hotkey (`foldKeyPressed`), panel state changes (`panelStateChanged`) and a finished
 /// drag (`didPlace`).
 @MainActor
 public final class OnboardingController {
@@ -210,9 +211,9 @@ public final class OnboardingController {
         }
     }
 
-    // MARK: Fold (⌥ Space or the keycaps)
+    // MARK: Fold (the fold hotkey or the keycaps)
 
-    /// The ⌥ Space hotkey while the tour is active, and the keycaps button.
+    /// The fold hotkey (⌥ Space by default) while the tour is active, and the keycaps button.
     public func foldKeyPressed() {
         let minimising = !panel.isMinimised
         if step == 2 {
@@ -231,7 +232,8 @@ public final class OnboardingController {
             if !sawFold {
                 sawFold = true
                 expandSoundPlayed = false
-                v.setTryMessage("Now bring it back: ⌥ Space again")
+                let keys = ShortcutStore().shortcut(for: .toggle).keycaps.joined(separator: " ")
+                v.setTryMessage("Now bring it back: \(keys) again")
             }
         } else if sawFold {
             // Expanded by clicking the line instead of the keys: still play the sound once.
