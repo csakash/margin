@@ -80,6 +80,8 @@ public struct ShortcutStore {
 - Validation rules, checked in order:
   1. `needsModifier`: at least one of ⌘ ⌥ ⌃ is required (⇧ alone is not enough, since ⇧A types text).
      Extra modifiers are allowed, so ⌃⌥Space and ⌘⇧M are valid.
+  1a. `commandOnly` (amended in build, D8): ⌘ as the only modifier is rejected, so standard
+     app shortcuts (⌘W, ⌘Q, ⌘C…) can't become global hotkeys. Message: "Add ⌥, ⌃ or ⇧ to a ⌘ shortcut."
   2. `reservedKey`: Esc, Return, Tab, Delete/Forward-Delete, Caps Lock, Fn and modifier-only key codes.
      The four arrow keys are also reserved when combined with exactly ⌃⌥, since those belong to the nudge.
   3. `duplicate(other)`: the same combo is already bound to the other `ShortcutAction`.
@@ -127,6 +129,10 @@ public struct ShortcutStore {
     - While recording, `AppDelegate` suspends **all** Margin global hotkeys
       (`unregisterAll` + re-register on exit), so pressing the current combo records it
       instead of folding the panel.
+    - (Amended in build, D7.) While recording, system and other apps' global hotkeys are also
+      paused with `CGSSetGlobalHotKeyOperatingMode` (private SkyLight API, as the ShortcutRecorder
+      library does; fine for the direct-download build, not Mac App Store). It is restored when
+      recording ends and on quit. This lets ⌘Space reach the recorder so AC6 can reject it.
     - It captures the first keyDown with its modifiers through a local `NSEvent` monitor. A
       modifier-only press updates the hint live (e.g. "⌃⌥…") but does not finish recording.
     - **Esc** cancels and leaves the binding unchanged. A click outside the field, or the
@@ -147,6 +153,8 @@ public struct ShortcutStore {
 
 Every location in the hardcoded-label table above reads from `ShortcutStore` and updates on
 `.marginShortcutsChanged`:
+- Labels show the **live** binding: the combo actually registered, which differs from the stored
+  one after a launch fallback (amended in build, review R1). `ShortcutStore.effectiveShortcut(for:)`.
 - `MainView` tooltips: `"New note  \(newNote.displayString)"`, `"Minimise  \(toggle.displayString)"`.
 - Tour: the keycaps come from `toggle.keycaps`. The ⌥N copy and the "bring it back" copy
   interpolate `displayString`.
@@ -168,6 +176,8 @@ Every location in the hardcoded-label table above reads from `ShortcutStore` and
 10. ⌘, opens Settings. Invoking it twice leaves exactly one Settings window.
 11. ⌃⌥ arrow nudges keep working whatever the two bindings are. Recording ⌃⌥← is rejected as reserved.
 12. Corrupt stored value (`defaults write … margin.shortcut.toggle -string junk`): the app launches with ⌥Space.
+13a. (D8) Recording ⌘W or ⌘Q shows "Add ⌥, ⌃ or ⇧ to a ⌘ shortcut." and nothing is rebound.
+13b. (R1) After a launch fallback, tooltips, tour keycaps and Settings show the combo that works, and Reset/recording the default succeeds.
 13. Each test in the Testing Plan states its card: `protects=<observable it protects>; fails_when=<wrong result it rejects>; no_claim=<what green does not prove; which fixtures or mocks stand in for what, or "none beyond protects">`.
 14. `swift build` and `swift test` are clean. No existing test changes behavior.
 
