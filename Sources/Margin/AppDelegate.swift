@@ -20,6 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var refreshScheduled = false
     private var savedTimer: Timer?
     private lazy var opacityPopover = makeOpacityPopover()
+    private let shortcuts = ShortcutStore()
+    /// The rebindable hotkeys currently registered: Carbon id and the combo it holds.
+    private var liveHotkeys: [ShortcutAction: (id: UInt32, shortcut: Shortcut)] = [:]
+    /// True while a Settings recorder is listening: every Margin hotkey is off so the keys reach it.
+    private var hotkeysSuspended = false
+    private var settings: SettingsWindowController?
 
     // MARK: Launch
 
@@ -49,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         wireHeaderAndToolbar()
         wireDrawer()
         wirePanel()
-        registerHotkeys()
+        registerHotkeys(atLaunch: true)
         buildStatusItem()
         BrowserClip.startTracking()   // remember the last browser you were in, for "Clip tab"
 
@@ -85,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let notes = store.list()
         if let saved, notes.contains(where: { $0.id == saved }) { open(saved) }
         else if let first = notes.first { open(first.id) }
-        else { open(store.create(initialText: Self.welcome)) }
+        else { open(store.create(initialText: welcomeText())) }
     }
 
     private func open(_ id: NoteID) {
@@ -100,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     private func newNote() {
-        // ⌥N, ⌘N or the menu during the tour: end the tour first, then make the note.
+        // The New Note hotkey, ⌘N or the menu during the tour: end the tour first, then make the note.
         if tour?.isBusy == true {
             tour.endNow { [weak self] in self?.newNote() }
             return
@@ -236,14 +242,100 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
     }
 
-    private func registerHotkeys() {
-        let hk = HotkeyCenter.shared
-        hk.register(.optionSpace) { [weak self] in
-            guard let self else { return }
-            if self.tour?.isActive == true { self.tour.foldKeyPressed() } else { self.panel.toggleMinimised() }
+    // MARK: Hotkeys
+
+    /// Registers both rebindable hotkeys from ShortcutStore, plus the fixed ⌃⌥ arrow nudges.
+    /// A stored combo another app has taken since falls back to the default (the stored value is
+    /// kept). If the default fails too the action stays unbound, and at launch one alert says so.
+    private func registerHotkeys(atLaunch: Bool) {
+        var failed: [(ShortcutAction, Shortcut)] = []
+        for action in ShortcutAction.allCases {
+            let wanted = shortcuts.shortcut(for: action)
+            if let id = registerHotkey(action, wanted) { liveHotkeys[action] = (id, wanted); continue }
+            let fallback = action.defaultShortcut
+            if fallback != wanted, shortcuts.validate(fallback, for: action) == .ok,
+               let id = registerHotkey(action, fallback) {
+                liveHotkeys[action] = (id, fallback)
+                continue
+            }
+            failed.append((action, wanted))
         }
-        hk.register(.optionN) { [weak self] in self?.newNote() }
-        hk.registerArrowNudges { [weak self] dx, dy in self?.panel.nudge(dx: dx, dy: dy) }
+        HotkeyCenter.shared.registerArrowNudges { [weak self] dx, dy in self?.panel.nudge(dx: dx, dy: dy) }
+        if atLaunch, !failed.isEmpty { showHotkeyFailure(failed) }
+    }
+
+    private func registerHotkey(_ action: ShortcutAction, _ shortcut: Shortcut) -> UInt32? {
+        HotkeyCenter.shared.register(HotkeyCenter.Combo(shortcut)) { [weak self] in self?.hotkeyFired(action) }
+    }
+
+    private func hotkeyFired(_ action: ShortcutAction) {
+        switch action {
+        case .toggle:
+            if tour?.isActive == true { tour.foldKeyPressed() } else { panel.toggleMinimised() }
+        case .newNote:
+            newNote()
+        }
+    }
+
+    /// The only way a binding changes. Swaps the live hotkey; if the new combo can't be
+    /// registered the old one goes back and nothing is saved.
+    private func rebind(_ action: ShortcutAction, to shortcut: Shortcut) -> Bool {
+        if hotkeysSuspended {
+            // Nothing is registered while recording; the combo goes live on resume.
+            guard HotkeyCenter.shared.isAvailable(HotkeyCenter.Combo(shortcut)) else { return false }
+        } else {
+            let old = liveHotkeys.removeValue(forKey: action)
+            if let old { HotkeyCenter.shared.unregister(old.id) }
+            guard !HotkeyCenter.isSystemShortcut(HotkeyCenter.Combo(shortcut)), let id = registerHotkey(action, shortcut) else {
+                if let old, let back = registerHotkey(action, old.shortcut) { liveHotkeys[action] = (back, old.shortcut) }
+                return false
+            }
+            liveHotkeys[action] = (id, shortcut)
+        }
+        if shortcut == action.defaultShortcut { shortcuts.reset(action) } else { shortcuts.set(shortcut, for: action) }
+        NotificationCenter.default.post(name: .marginShortcutsChanged, object: nil)
+        return true
+    }
+
+    /// Settings recorders turn every Margin hotkey off while they listen, so pressing the
+    /// current combo records it instead of folding the panel.
+    private func setHotkeysSuspended(_ suspended: Bool) {
+        guard suspended != hotkeysSuspended else { return }
+        hotkeysSuspended = suspended
+        if suspended {
+            HotkeyCenter.shared.unregisterAll()
+            liveHotkeys.removeAll()
+        } else {
+            registerHotkeys(atLaunch: false)
+        }
+    }
+
+    private func showHotkeyFailure(_ failed: [(ShortcutAction, Shortcut)]) {
+        let combos = failed.map { $0.1.displayString }.joined(separator: " or ")
+        let alert = NSAlert()
+        alert.messageText = "Margin couldn't use \(combos)."
+        alert.informativeText = "Another app or macOS is using it. Choose another shortcut in Settings."
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Later")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { showSettings() }
+    }
+
+    /// One Settings window, made on first use.
+    @objc private func showSettings() {
+        if settings == nil {
+            let s = SettingsWindowController(store: shortcuts)
+            s.onRecordingChanged = { [weak self] recording in self?.setHotkeysSuspended(recording) }
+            s.apply = { [weak self] action, shortcut in self?.rebind(action, to: shortcut) ?? false }
+            settings = s
+        }
+        settings?.show()
+    }
+
+    /// ⌘W closes Settings when it is in front; otherwise it folds the panel, as before.
+    @objc private func closeAction() {
+        if let w = settings?.window, w.isKeyWindow { w.performClose(nil); return }
+        minimiseAction()
     }
 
     // MARK: Actions
@@ -494,6 +586,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         place.submenu = sub
         menu.addItem(place)
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Open Notes Folder", action: #selector(openFolder), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "").target = self
@@ -517,11 +610,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let appItem = NSMenuItem(); main.addItem(appItem)
         let app = NSMenu()
         app.addItem(withTitle: "About Margin", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         app.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesAction), keyEquivalent: "").target = self
         app.addItem(withTitle: "Check for Updates Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "").target = self
         app.addItem(withTitle: "Show Welcome Tour", action: #selector(showTour), keyEquivalent: "").target = self
         app.addItem(.separator())
-        // Margin is never fully hidden (⌥ Space and the menu bar icon could not bring it back):
+        // Margin is never fully hidden (the fold hotkey and the menu bar icon could not bring it back):
         // "Hide" folds the panel into its line.
         app.addItem(withTitle: "Hide Margin", action: #selector(minimiseAction), keyEquivalent: "h").target = self
         let hideOthers = app.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
@@ -535,8 +629,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         file.addItem(withTitle: "New Note", action: #selector(newNoteAction), keyEquivalent: "n").target = self
         file.addItem(withTitle: "All Notes", action: #selector(toggleDrawerAction), keyEquivalent: "o").target = self
         file.addItem(.separator())
-        // The panel never closes; ⌘W folds it into its line, like ⌥ Space.
-        file.addItem(withTitle: "Close", action: #selector(minimiseAction), keyEquivalent: "w").target = self
+        // The panel never closes; ⌘W folds it into its line, like the fold hotkey.
+        file.addItem(withTitle: "Close", action: #selector(closeAction), keyEquivalent: "w").target = self
         fileItem.submenu = file
 
         let editItem = NSMenuItem(); main.addItem(editItem)
@@ -601,15 +695,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NSApp.mainMenu = main
     }
 
-    private static let welcome = """
+    private func welcomeText() -> String {
+        let fold = shortcuts.shortcut(for: .toggle).keycaps.joined(separator: " ")
+        return """
     # Welcome to Margin
 
     A floating notepad that stays above what you're reading.
 
-    - ⌥ Space minimises it to a thin line; click or drag the line
+    - \(fold) minimises it to a thin line; click or drag the line
     - ⌃⌥ + arrows move it between the 8 spots
     - Type / for blocks, or use # - [ ] > ``` at the start of a line
     - [ ] Drop an image, paste a link, or drag text from a page
     - [ ] Open All notes at the bottom right
     """
+    }
 }
