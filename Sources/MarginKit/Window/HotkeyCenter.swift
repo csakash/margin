@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import MarginCore
 
 /// Global hotkeys via Carbon RegisterEventHotKey (no Accessibility permission needed).
 @MainActor
@@ -22,20 +23,59 @@ public final class HotkeyCenter {
 
     private init() {}
 
-    /// Registers a global hotkey. Returns false if the combo is taken.
+    /// Registers a global hotkey. Returns its id (for `unregister`), or nil if the combo is taken.
     @discardableResult
-    public func register(_ combo: Combo, handler: @escaping () -> Void) -> Bool {
-        guard installHandlerIfNeeded() else { return false }
+    public func register(_ combo: Combo, handler: @escaping () -> Void) -> UInt32? {
+        guard installHandlerIfNeeded() else { return nil }
         let id = nextID
         nextID += 1
         var ref: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(signature: Self.signature, id: id)
         let status = RegisterEventHotKey(combo.keyCode, combo.modifiers, hotKeyID,
                                          GetApplicationEventTarget(), 0, &ref)
-        guard status == noErr, let ref else { return false }
+        guard status == noErr, let ref else { return nil }
         hotKeys[id] = ref
         handlers[id] = handler
+        return id
+    }
+
+    /// Removes one hotkey registered by `register`. Unknown ids are ignored.
+    public func unregister(_ id: UInt32) {
+        if let ref = hotKeys.removeValue(forKey: id) { UnregisterEventHotKey(ref) }
+        handlers.removeValue(forKey: id)
+    }
+
+    /// Whether Margin could own this combo right now: macOS has no enabled system shortcut on it
+    /// (Spotlight, input sources, Mission Control…) and RegisterEventHotKey accepts it. The trial
+    /// registration is removed straight away. A combo Margin itself holds reports false.
+    public func isAvailable(_ combo: Combo) -> Bool {
+        if Self.isSystemShortcut(combo) { return false }
+        guard let id = register(combo, handler: {}) else { return false }
+        unregister(id)
         return true
+    }
+
+    /// Pauses every global hotkey on the system (Spotlight, input sources, other apps' and our
+    /// own) so a Settings recorder sees the keys. Private SkyLight call, the one ShortcutRecorder
+    /// uses; not allowed in the Mac App Store. The mode belongs to our connection, so macOS drops
+    /// it if Margin exits, but callers still restore it when recording ends and on quit.
+    public static func setSystemHotkeysPaused(_ paused: Bool) {
+        // 2 = disable except Universal Access (⌘F5 VoiceOver keeps working), 0 = enable.
+        _ = CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), paused ? 2 : 0)
+    }
+
+    /// Enabled entries in the system's symbolic hotkeys (System Settings › Keyboard Shortcuts).
+    /// Their modifiers use the same Carbon mask as Combo.
+    public static func isSystemShortcut(_ combo: Combo) -> Bool {
+        var list: Unmanaged<CFArray>?
+        guard CopySymbolicHotKeys(&list) == noErr,
+              let entries = list?.takeRetainedValue() as? [[String: Any]] else { return false }
+        let mask = Shortcut.Mod.all
+        return entries.contains { e in
+            (e[kHISymbolicHotKeyEnabled as String] as? Bool ?? false)
+                && (e[kHISymbolicHotKeyCode as String] as? Int).flatMap { UInt32(exactly: $0) } == combo.keyCode
+                && (e[kHISymbolicHotKeyModifiers as String] as? Int).flatMap { UInt32(exactly: $0) }.map { $0 & mask } == combo.modifiers & mask
+        }
     }
 
     /// Registers ⌃⌥ + ←→↑↓. `nudge` receives (dx, dy) in anchor-grid steps; up is dy = -1.
@@ -48,7 +88,7 @@ public final class HotkeyCenter {
             register(a.up) { nudge(0, -1) },
             register(a.down) { nudge(0, 1) },
         ]
-        return !results.contains(false)
+        return !results.contains(nil)
     }
 
     public func unregisterAll() {
@@ -70,10 +110,8 @@ public final class HotkeyCenter {
 }
 
 public extension HotkeyCenter.Combo {
-    /// ⌥Space: minimise / expand.
-    static let optionSpace = HotkeyCenter.Combo(keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey))
-    /// ⌥N: new note.
-    static let optionN = HotkeyCenter.Combo(keyCode: UInt32(kVK_ANSI_N), modifiers: UInt32(optionKey))
+    /// A user binding (ShortcutStore). The defaults, ⌥Space and ⌥N, live in ShortcutAction.
+    init(_ shortcut: Shortcut) { self.init(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) }
     /// ⌃⌥ + arrows: walk the 8 anchors.
     static let ctrlOptionArrows: (left: HotkeyCenter.Combo, right: HotkeyCenter.Combo, up: HotkeyCenter.Combo, down: HotkeyCenter.Combo) = {
         let m = UInt32(controlKey | optionKey)
@@ -83,6 +121,11 @@ public extension HotkeyCenter.Combo {
                 HotkeyCenter.Combo(keyCode: UInt32(kVK_DownArrow), modifiers: m))
     }()
 }
+
+@_silgen_name("CGSMainConnectionID")
+private func CGSMainConnectionID() -> Int32
+@_silgen_name("CGSSetGlobalHotKeyOperatingMode")
+private func CGSSetGlobalHotKeyOperatingMode(_ connection: Int32, _ mode: Int32) -> Int32
 
 /// Carbon callback (C function pointer, so no captures). Dispatches to the main actor.
 private func marginHotKeyCallback(_ next: EventHandlerCallRef?, _ event: EventRef?, _ userData: UnsafeMutableRawPointer?) -> OSStatus {

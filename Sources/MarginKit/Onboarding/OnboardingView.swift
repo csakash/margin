@@ -1,5 +1,6 @@
 import AppKit
 import QuartzCore
+import MarginCore
 
 /// What one step of the first-launch tour shows. Copy matches design/onboarding.html.
 struct TourStep {
@@ -12,7 +13,8 @@ struct TourStep {
     /// Hint shown next to the button ("↵" or a short line).
     let hint: String?
 
-    static let all: [TourStep] = [
+    /// Built on each read so the copy names the user's current shortcuts.
+    static var all: [TourStep] { let newNote = ShortcutStore().effectiveShortcut(for: .newNote).displayString; return [
         TourStep(eyebrow: "WELCOME", title: "A quiet place to write, right next to what you read.",
                  sub: "Four small things, and you are set. About thirty seconds.", kind: .plain, cta: "Begin", hint: "↵"),
         TourStep(eyebrow: "01 · FLOAT", title: "It stays above everything.",
@@ -27,8 +29,8 @@ struct TourStep {
                  sub: "The ⌖ button below turns a region of your screen into an image in the note. macOS asks once for permission; Margin only sees what you select.",
                  kind: .screens, cta: "Allow screenshots", hint: nil),
         TourStep(eyebrow: "READY", title: "That's all of it.",
-                 sub: "Your notes are plain files on this Mac. Nothing leaves it. ⌥N starts a new one.", kind: .plain, cta: "Start writing", hint: nil),
-    ]
+                 sub: "Your notes are plain files on this Mac. Nothing leaves it. \(newNote) starts a new one.", kind: .plain, cta: "Start writing", hint: nil),
+    ] }
 }
 
 /// The tour's content inside the glass panel. Draws one step at a time; knows nothing about
@@ -169,7 +171,7 @@ final class OnboardingView: NSView {
         if let sub = step.sub { views.append(wrapping(sub, Theme.ui(13.5), Theme.textSecondary)) }
         switch step.kind {
         case .fold:
-            views.append(makeTryBox(keycaps: ["⌥", "Space"], message: "Try it now"))
+            views.append(makeTryBox(keycaps: ShortcutStore().effectiveShortcut(for: .toggle).keycaps, message: "Try it now"))
         case .place:
             views.append(makeTryBox(keycaps: [], message: "Drag from the top bar"))
         case .write:
@@ -394,7 +396,7 @@ final class TourHeader: NSView {
     override func mouseDown(with event: NSEvent) { onMouseDown?(event) }
 }
 
-/// "⌥ Space" drawn as keycaps; clicking it does what the keys do.
+/// The fold shortcut drawn as keycaps ("⌥ Space" by default); clicking it does what the keys do.
 @MainActor
 final class KeycapButton: NSButton {
     init(keys: [String]) {
