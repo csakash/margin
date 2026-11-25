@@ -60,7 +60,8 @@ public final class HotkeyCenter {
     /// uses; not allowed in the Mac App Store. The mode belongs to our connection, so macOS drops
     /// it if Margin exits, but callers still restore it when recording ends and on quit.
     public static func setSystemHotkeysPaused(_ paused: Bool) {
-        _ = CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), paused ? 1 : 0)   // 1 disable, 0 enable
+        // 2 = disable except Universal Access (⌘F5 VoiceOver keeps working), 0 = enable.
+        _ = CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), paused ? 2 : 0)
     }
 
     /// Enabled entries in the system's symbolic hotkeys (System Settings › Keyboard Shortcuts).
@@ -72,8 +73,8 @@ public final class HotkeyCenter {
         let mask = Shortcut.Mod.all
         return entries.contains { e in
             (e[kHISymbolicHotKeyEnabled as String] as? Bool ?? false)
-                && (e[kHISymbolicHotKeyCode as String] as? Int).map(UInt32.init) == combo.keyCode
-                && (e[kHISymbolicHotKeyModifiers as String] as? Int).map { UInt32($0) & mask } == combo.modifiers & mask
+                && (e[kHISymbolicHotKeyCode as String] as? Int).flatMap { UInt32(exactly: $0) } == combo.keyCode
+                && (e[kHISymbolicHotKeyModifiers as String] as? Int).flatMap { UInt32(exactly: $0) }.map { $0 & mask } == combo.modifiers & mask
         }
     }
 

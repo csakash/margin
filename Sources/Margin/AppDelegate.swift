@@ -253,22 +253,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// A stored combo another app has taken since falls back to the default (the stored value is
     /// kept). If the default fails too the action stays unbound, and at launch one alert says so.
     private func registerHotkeys(atLaunch: Bool) {
-        var failed: [Shortcut] = []
+        var failed: [Shortcut] = []   // combos that could not be registered (another app or macOS)
         for action in ShortcutAction.allCases {
-            let wanted = shortcuts.shortcut(for: action)
-            // A stored value that breaks the rules (written by hand, or by an older build) is skipped.
-            if shortcuts.validate(wanted, for: action) == .ok, let id = registerHotkey(action, wanted) {
-                liveHotkeys[action] = (id, wanted)
-                continue
+            var candidates = [shortcuts.shortcut(for: action)]
+            if candidates[0] != action.defaultShortcut { candidates.append(action.defaultShortcut) }
+            for combo in candidates {
+                // A combo that breaks the rules (written by hand, or by an older build) is skipped.
+                // Clashes between the two actions are left to registration: whichever registers
+                // first keeps the combo and the other falls back, as before.
+                switch shortcuts.validate(combo, for: action) {
+                case .ok, .duplicate: break
+                case .needsModifier, .commandOnly, .reservedKey: continue
+                }
+                if let id = registerHotkey(action, combo) {
+                    liveHotkeys[action] = (id, combo)
+                    break
+                }
+                // Margin's own other hotkey isn't "another app".
+                if !liveHotkeys.values.contains(where: { $0.shortcut == combo }) { failed.append(combo) }
             }
-            let fallback = action.defaultShortcut
-            if fallback != wanted, shortcuts.validate(fallback, for: action) == .ok,
-               let id = registerHotkey(action, fallback) {
-                liveHotkeys[action] = (id, fallback)
-                continue
-            }
-            failed.append(wanted)
-            if fallback != wanted { failed.append(fallback) }
         }
         HotkeyCenter.shared.registerArrowNudges { [weak self] dx, dy in self?.panel.nudge(dx: dx, dy: dy) }
         // Labels show the live combos, which a fallback may have changed.
