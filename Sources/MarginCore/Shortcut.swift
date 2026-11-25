@@ -124,6 +124,7 @@ public struct Shortcut: Codable, Hashable, Sendable {
 public enum ShortcutValidation: Equatable, Sendable {
     case ok
     case needsModifier
+    case commandOnly
     case reservedKey
     case duplicate(ShortcutAction)
 
@@ -132,6 +133,7 @@ public enum ShortcutValidation: Equatable, Sendable {
         switch self {
         case .ok: return nil
         case .needsModifier: return "Use at least one of ⌘ ⌥ ⌃."
+        case .commandOnly: return "Add ⌥, ⌃ or ⇧ to a ⌘ shortcut."
         case .reservedKey: return "That key can't be a shortcut."
         case .duplicate(let other): return "Already used for \(other.shortTitle)."
         }
@@ -156,6 +158,15 @@ public struct ShortcutStore {
         storedShortcut(for: action) ?? action.defaultShortcut
     }
 
+    /// The combos actually registered right now, set by the app. After a launch fallback the
+    /// live combo (the default) differs from the stored one; labels show what works.
+    nonisolated(unsafe) public static var live: [ShortcutAction: Shortcut] = [:]
+
+    /// What the user can press now: the live combo, else the stored one (or the default).
+    public func effectiveShortcut(for action: ShortcutAction) -> Shortcut {
+        Self.live[action] ?? shortcut(for: action)
+    }
+
     /// The stored value only (nil when unset or unreadable).
     public func storedShortcut(for action: ShortcutAction) -> Shortcut? {
         guard let data = defaults.data(forKey: Self.key(for: action)) else { return nil }
@@ -171,17 +182,19 @@ public struct ShortcutStore {
         defaults.removeObject(forKey: Self.key(for: action))
     }
 
-    /// Checks, in order: a ⌘/⌥/⌃ modifier, a usable key, no clash with another action.
+    /// Checks, in order: a ⌘/⌥/⌃ modifier, not ⌘ alone (⌘W, ⌘Q… must keep working in every
+    /// app), a usable key, no clash with another action.
     /// Whether macOS or another app already holds the combo is HotkeyCenter's job (it needs Carbon).
     public func validate(_ shortcut: Shortcut, for action: ShortcutAction) -> ShortcutValidation {
         let m = shortcut.modifiers
         if m & (Shortcut.Mod.command | Shortcut.Mod.option | Shortcut.Mod.control) == 0 { return .needsModifier }
+        if m == Shortcut.Mod.command { return .commandOnly }
         if Shortcut.reservedKeyCodes.contains(shortcut.keyCode) { return .reservedKey }
         // ⌃⌥ + arrows walk the panel between anchors.
         if Shortcut.arrowKeyCodes.contains(shortcut.keyCode), m == Shortcut.Mod.control | Shortcut.Mod.option {
             return .reservedKey
         }
-        for other in ShortcutAction.allCases where other != action && self.shortcut(for: other) == shortcut {
+        for other in ShortcutAction.allCases where other != action && effectiveShortcut(for: other) == shortcut {
             return .duplicate(other)
         }
         return .ok

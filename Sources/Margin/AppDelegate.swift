@@ -22,7 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private lazy var opacityPopover = makeOpacityPopover()
     private let shortcuts = ShortcutStore()
     /// The rebindable hotkeys currently registered: Carbon id and the combo it holds.
-    private var liveHotkeys: [ShortcutAction: (id: UInt32, shortcut: Shortcut)] = [:]
+    private var liveHotkeys: [ShortcutAction: (id: UInt32, shortcut: Shortcut)] = [:] {
+        didSet { ShortcutStore.live = liveHotkeys.mapValues { $0.shortcut } }
+    }
     /// True while a Settings recorder is listening: every Margin hotkey is off so the keys reach it.
     private var hotkeysSuspended = false
     private var settings: SettingsWindowController?
@@ -82,7 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
-    func applicationWillTerminate(_ notification: Notification) { store?.flush() }
+    func applicationWillTerminate(_ notification: Notification) {
+        if hotkeysSuspended { HotkeyCenter.setSystemHotkeysPaused(false) }   // quit mid-recording
+        store?.flush()
+    }
 
     // MARK: Notes
 
@@ -248,7 +253,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// A stored combo another app has taken since falls back to the default (the stored value is
     /// kept). If the default fails too the action stays unbound, and at launch one alert says so.
     private func registerHotkeys(atLaunch: Bool) {
-        var failed: [(ShortcutAction, Shortcut)] = []
+        var failed: [Shortcut] = []
         for action in ShortcutAction.allCases {
             let wanted = shortcuts.shortcut(for: action)
             if let id = registerHotkey(action, wanted) { liveHotkeys[action] = (id, wanted); continue }
@@ -258,10 +263,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 liveHotkeys[action] = (id, fallback)
                 continue
             }
-            failed.append((action, wanted))
+            failed.append(wanted)
+            if fallback != wanted { failed.append(fallback) }
         }
         HotkeyCenter.shared.registerArrowNudges { [weak self] dx, dy in self?.panel.nudge(dx: dx, dy: dy) }
-        if atLaunch, !failed.isEmpty { showHotkeyFailure(failed) }
+        // Labels show the live combos, which a fallback may have changed.
+        NotificationCenter.default.post(name: .marginShortcutsChanged, object: nil)
+        if atLaunch, !failed.isEmpty {
+            // After launch finishes, so Settings never opens over a half-built app.
+            DispatchQueue.main.async { [weak self] in self?.showHotkeyFailure(failed) }
+        }
     }
 
     private func registerHotkey(_ action: ShortcutAction, _ shortcut: Shortcut) -> UInt32? {
@@ -305,13 +316,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if suspended {
             HotkeyCenter.shared.unregisterAll()
             liveHotkeys.removeAll()
+            HotkeyCenter.setSystemHotkeysPaused(true)
         } else {
+            HotkeyCenter.setSystemHotkeysPaused(false)
             registerHotkeys(atLaunch: false)
         }
     }
 
-    private func showHotkeyFailure(_ failed: [(ShortcutAction, Shortcut)]) {
-        let combos = failed.map { $0.1.displayString }.joined(separator: " or ")
+    private func showHotkeyFailure(_ failed: [Shortcut]) {
+        let combos = failed.map(\.displayString).joined(separator: " or ")
         let alert = NSAlert()
         alert.messageText = "Margin couldn't use \(combos)."
         alert.informativeText = "Another app or macOS is using it. Choose another shortcut in Settings."
@@ -696,7 +709,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     private func welcomeText() -> String {
-        let fold = shortcuts.shortcut(for: .toggle).keycaps.joined(separator: " ")
+        let fold = shortcuts.effectiveShortcut(for: .toggle).keycaps.joined(separator: " ")
         return """
     # Welcome to Margin
 

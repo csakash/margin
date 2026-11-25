@@ -232,7 +232,7 @@ public final class OnboardingController {
             if !sawFold {
                 sawFold = true
                 expandSoundPlayed = false
-                let keys = ShortcutStore().shortcut(for: .toggle).keycaps.joined(separator: " ")
+                let keys = ShortcutStore().effectiveShortcut(for: .toggle).keycaps.joined(separator: " ")
                 v.setTryMessage("Now bring it back: \(keys) again")
             }
         } else if sawFold {

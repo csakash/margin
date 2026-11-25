@@ -14,7 +14,7 @@ struct TourStep {
     let hint: String?
 
     /// Built on each read so the copy names the user's current shortcuts.
-    static var all: [TourStep] { let newNote = ShortcutStore().shortcut(for: .newNote).displayString; return [
+    static var all: [TourStep] { let newNote = ShortcutStore().effectiveShortcut(for: .newNote).displayString; return [
         TourStep(eyebrow: "WELCOME", title: "A quiet place to write, right next to what you read.",
                  sub: "Four small things, and you are set. About thirty seconds.", kind: .plain, cta: "Begin", hint: "↵"),
         TourStep(eyebrow: "01 · FLOAT", title: "It stays above everything.",
@@ -171,7 +171,7 @@ final class OnboardingView: NSView {
         if let sub = step.sub { views.append(wrapping(sub, Theme.ui(13.5), Theme.textSecondary)) }
         switch step.kind {
         case .fold:
-            views.append(makeTryBox(keycaps: ShortcutStore().shortcut(for: .toggle).keycaps, message: "Try it now"))
+            views.append(makeTryBox(keycaps: ShortcutStore().effectiveShortcut(for: .toggle).keycaps, message: "Try it now"))
         case .place:
             views.append(makeTryBox(keycaps: [], message: "Drag from the top bar"))
         case .write:

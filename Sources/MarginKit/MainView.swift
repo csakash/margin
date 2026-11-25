@@ -188,8 +188,8 @@ public final class HeaderBar: NSView {
     /// Tooltips name the user's current bindings.
     @objc private func updateShortcutTips() {
         let store = ShortcutStore()
-        newButton.tip = "New note  \(store.shortcut(for: .newNote).displayString)"
-        minimiseButton.tip = "Minimise  \(store.shortcut(for: .toggle).displayString)"
+        newButton.tip = "New note  \(store.effectiveShortcut(for: .newNote).displayString)"
+        minimiseButton.tip = "Minimise  \(store.effectiveShortcut(for: .toggle).displayString)"
     }
 }
 

@@ -55,6 +55,14 @@ public final class HotkeyCenter {
         return true
     }
 
+    /// Pauses every global hotkey on the system (Spotlight, input sources, other apps' and our
+    /// own) so a Settings recorder sees the keys. Private SkyLight call, the one ShortcutRecorder
+    /// uses; not allowed in the Mac App Store. The mode belongs to our connection, so macOS drops
+    /// it if Margin exits, but callers still restore it when recording ends and on quit.
+    public static func setSystemHotkeysPaused(_ paused: Bool) {
+        _ = CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), paused ? 1 : 0)   // 1 disable, 0 enable
+    }
+
     /// Enabled entries in the system's symbolic hotkeys (System Settings › Keyboard Shortcuts).
     /// Their modifiers use the same Carbon mask as Combo.
     public static func isSystemShortcut(_ combo: Combo) -> Bool {
@@ -112,6 +120,11 @@ public extension HotkeyCenter.Combo {
                 HotkeyCenter.Combo(keyCode: UInt32(kVK_DownArrow), modifiers: m))
     }()
 }
+
+@_silgen_name("CGSMainConnectionID")
+private func CGSMainConnectionID() -> Int32
+@_silgen_name("CGSSetGlobalHotKeyOperatingMode")
+private func CGSSetGlobalHotKeyOperatingMode(_ connection: Int32, _ mode: Int32) -> Int32
 
 /// Carbon callback (C function pointer, so no captures). Dispatches to the main actor.
 private func marginHotKeyCallback(_ next: EventHandlerCallRef?, _ event: EventRef?, _ userData: UnsafeMutableRawPointer?) -> OSStatus {

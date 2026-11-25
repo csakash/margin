@@ -1,9 +1,9 @@
 import AppKit
 import MarginCore
 
-/// Settings › Shortcuts: one row per rebindable global shortcut. A combo is checked in order
-/// (ShortcutStore.validate, then HotkeyCenter.isAvailable, then `apply`); any failure shows an
-/// inline message and the old binding stays.
+/// Settings › Shortcuts: one row per rebindable global shortcut. A combo is checked by
+/// ShortcutStore.validate, then `apply` (which refuses system shortcuts and combos another app
+/// holds); any failure shows an inline message and the old binding stays.
 @MainActor
 public final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     /// A recorder started or stopped listening. The app turns its hotkeys off meanwhile.
@@ -86,7 +86,7 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
         let label = NSTextField(labelWithString: action.title)
         label.font = Theme.ui(13)
         label.textColor = Theme.textSecondary
-        let recorder = ShortcutRecorderField(shortcut: store.shortcut(for: action), actionTitle: action.title)
+        let recorder = ShortcutRecorderField(shortcut: store.effectiveShortcut(for: action), actionTitle: action.title)
         recorder.onRecordingChanged = { [weak self] recording in
             guard let self else { return }
             if recording {
@@ -121,7 +121,7 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
     // MARK: Binding
 
     private func attempt(_ shortcut: Shortcut, for action: ShortcutAction) {
-        if shortcut == store.shortcut(for: action) {   // unchanged
+        if shortcut == store.effectiveShortcut(for: action) {   // unchanged
             setMessage(nil, for: action)
             return
         }
@@ -130,8 +130,9 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
             setMessage(message, for: action)
             return
         }
-        guard HotkeyCenter.shared.isAvailable(HotkeyCenter.Combo(shortcut)),
-              apply?(action, shortcut) == true else {
+        // `apply` frees this action's own combo before trying the new one, so re-picking the
+        // combo Margin already holds (Reset after a fallback) isn't reported as taken.
+        guard apply?(action, shortcut) == true else {
             setMessage("\(shortcut.displayString) is in use by macOS or another app.", for: action)
             return
         }
@@ -149,7 +150,7 @@ public final class SettingsWindowController: NSWindowController, NSWindowDelegat
 
     private func reloadRows() {
         for (action, row) in rows {
-            let current = store.shortcut(for: action)
+            let current = store.effectiveShortcut(for: action)
             row.recorder.shortcut = current
             row.reset.isEnabled = current != action.defaultShortcut
         }

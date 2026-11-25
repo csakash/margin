@@ -15,6 +15,7 @@ final class ShortcutTests: XCTestCase {
 
     override func tearDown() {
         defaults.removePersistentDomain(forName: suiteName)
+        ShortcutStore.live = [:]
     }
 
     // MARK: Display
@@ -59,7 +60,7 @@ final class ShortcutTests: XCTestCase {
     // protects=Esc/Return and ⌃⌥ arrows (nudge, AC11) can't be bound; fails_when=any of them validates ok; no_claim=other arrow combos stay allowed only as far as asserted
     func testReservedKeysRejected() {
         XCTAssertEqual(store.validate(Shortcut(keyCode: Shortcut.Key.escape, modifiers: M.option), for: .toggle), .reservedKey)
-        XCTAssertEqual(store.validate(Shortcut(keyCode: 0x24, modifiers: M.command), for: .toggle), .reservedKey)
+        XCTAssertEqual(store.validate(Shortcut(keyCode: 0x24, modifiers: M.option), for: .toggle), .reservedKey)
         XCTAssertEqual(store.validate(Shortcut(keyCode: Shortcut.Key.leftArrow, modifiers: M.control | M.option), for: .toggle), .reservedKey)
         XCTAssertEqual(store.validate(Shortcut(keyCode: Shortcut.Key.leftArrow, modifiers: M.control | M.option | M.shift), for: .toggle), .ok)
     }
@@ -71,6 +72,23 @@ final class ShortcutTests: XCTestCase {
         XCTAssertEqual(ShortcutValidation.duplicate(.newNote).message, "Already used for New Note.")
         // Its own current combo is not a duplicate of itself.
         XCTAssertEqual(store.validate(newNote, for: .newNote), .ok)
+    }
+
+    // protects=D8 ⌘W/⌘Q/⌘C can't become global hotkeys; fails_when=a ⌘-only combo validates ok, or ⌘⇧ is wrongly rejected; no_claim=none beyond protects
+    func testCommandOnlyRejected() {
+        XCTAssertEqual(store.validate(Shortcut(keyCode: 0x0D, modifiers: M.command), for: .newNote), .commandOnly)   // ⌘W
+        XCTAssertEqual(store.validate(Shortcut(keyCode: 0x0C, modifiers: M.command), for: .toggle), .commandOnly)    // ⌘Q
+        XCTAssertEqual(store.validate(Shortcut(keyCode: 0x0D, modifiers: M.command | M.shift), for: .newNote), .ok)
+    }
+
+    // protects=R1 labels and duplicate checks use the live combo after a launch fallback; fails_when=effective returns the dead stored combo; no_claim=the app sets `live`; this only checks the store reads it
+    func testEffectiveUsesLiveBinding() {
+        let stored = Shortcut(keyCode: Shortcut.Key.m, modifiers: M.control | M.option)
+        store.set(stored, for: .toggle)
+        XCTAssertEqual(store.effectiveShortcut(for: .toggle), stored)
+        ShortcutStore.live = [.toggle: ShortcutAction.toggle.defaultShortcut]
+        XCTAssertEqual(store.effectiveShortcut(for: .toggle), ShortcutAction.toggle.defaultShortcut)
+        XCTAssertEqual(store.validate(ShortcutAction.toggle.defaultShortcut, for: .newNote), .duplicate(.toggle))
     }
 
     // protects=extra modifiers are allowed (⌃⌥Space, ⌘⇧M); fails_when=multi-modifier combo rejected; no_claim=does not check whether macOS owns the combo
