@@ -169,7 +169,21 @@ public final class MarkdownTextView: NSTextView {
 
     public override func paste(_ sender: Any?) {
         if let h = mediaHandler, let c = editorController, h.handlePaste(.general, in: c) { return }
-        pasteAsPlainText(sender)
+        insertPlainText(from: .general)
+    }
+
+    /// Paste and Match Style is the same thing here: notes are plain markdown.
+    public override func pasteAsPlainText(_ sender: Any?) { insertPlainText(from: .general) }
+
+    /// Inserts the pasteboard's text at the selection. NSTextView's own plain-text paste routes back
+    /// through `paste(_:)` for a plain-text view, so the override above never reached the text and
+    /// nothing was pasted. Going through `insertText` keeps it undoable and saved like typing.
+    private func insertPlainText(from pb: NSPasteboard) {
+        guard isEditable, let s = pb.string(forType: .string), !s.isEmpty else { NSSound.beep(); return }
+        let text = s.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        breakUndoCoalescing()
+        insertText(text, replacementRange: selectedRange())
+        breakUndoCoalescing()
     }
 
     public override func pasteAsRichText(_ sender: Any?) { paste(sender) }

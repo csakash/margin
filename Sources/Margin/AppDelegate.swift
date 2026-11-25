@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Read before anything below saves a note or a position, which would count as "used before".
         let firstRun = !OnboardingController.hasRun || Override.value("MARGIN_ONBOARDING") == "1"
         buildMainMenu()
+        FloatingPanel.installShortcutRouting()   // ⌘C, ⌘V, ⌘Z… whether or not Margin is the active app
         // MARGIN_NOTES_DIR lets tests and demos use a scratch folder instead of ~/Documents/Margin.
         let folder = Override.value("MARGIN_NOTES_DIR").map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? NoteStore.defaultFolder
